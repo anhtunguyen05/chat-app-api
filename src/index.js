@@ -1,11 +1,24 @@
+require('dotenv').config();
+
 const express = require('express')
+
 const app = express()
-const port = 3000
+
+const route = require("./routes");
+const db = require('./config/database')
+
+//Connect to database
+db.connect();
+
+//Middleware
+app.use(express.urlencoded());
+app.use(express.json());
 
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+// Route
+route(app);
+
+app.listen(process.env.PORT || 5000, () => console.log("Server running on port 5000"));
