@@ -16,5 +16,6 @@ router.post(
   AuthController.register
 );
 router.post("/login", loginValidator, validateRequest, AuthController.login);
+router.post("/google", AuthController.googleLogin);
 
 module.exports = router;

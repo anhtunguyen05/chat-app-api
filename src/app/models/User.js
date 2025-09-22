@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password là bắt buộc"],
+      // required: [true, "Password là bắt buộc"],
       minlength: [6, "Password phải >= 6 ký tự"],
     },
     nickname: { type: String },

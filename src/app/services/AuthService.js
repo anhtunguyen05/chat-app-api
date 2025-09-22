@@ -1,6 +1,9 @@
+const { OAuth2Client } = require("google-auth-library");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const User = require("../models/User");
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 class AuthService {
   generateToken = (payload) => {
@@ -55,6 +58,45 @@ class AuthService {
 
     return {
       user: { id: user._id, username: user.username, email: user.email },
+      token,
+    };
+  }
+
+  async googleLogin(googleToken) {
+    // 1️⃣ Verify ID token với Google
+    const ticket = await client.verifyIdToken({
+      idToken: googleToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, picture } = payload;
+
+    // 2️⃣ Tìm hoặc tạo user
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        email,
+        avatar: picture, // ✅ Lưu avatar Google
+        // provider: "google",
+      });
+    } else {
+      // Cập nhật avatar nếu user chưa có
+      if (!user.avatar) {
+        user.avatar = picture;
+        await user.save();
+      }
+    }
+
+    // 3️⃣ Tạo JWT của hệ thống để frontend dùng
+    const token = this.generateToken({ id: user._id });
+
+    return {
+      message: "Login Google thành công",
+      user: {
+        id: user._id,
+        email: user.email,
+        avatar: user.avatar,
+      },
       token,
     };
   }
