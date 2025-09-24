@@ -14,8 +14,9 @@ class AuthController {
   }
 
   async login(req, res) {
+    console.log("BODY >>>", req.body); 
     try {
-      const result = await authService.login(req.body);
+      const result = await authService.login(req.body, res);
       res.json(result);
     } catch (err) {
       res.status(400).json({ message: err.message });
@@ -30,6 +31,15 @@ class AuthController {
       res.status(200).json(result);
     } catch (err) {
       console.error(err);
+      res.status(400).json({ message: err.message });
+    }
+  }
+
+  async logout(req, res) {
+    try {
+      const result = await authService.logout(res);
+      res.status(200).json(result);
+    } catch (err) {
       res.status(400).json({ message: err.message });
     }
   }

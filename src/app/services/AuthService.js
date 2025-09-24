@@ -30,23 +30,28 @@ class AuthService {
     // Tạo token
     const token = this.generateToken({ id: newUser._id });
 
+    // 🔑 Set cookie HTTP-only
+    res.cookie("token", token, {
+      httpOnly: true, // không cho JS đọc
+      secure: false, // chỉ gửi qua HTTPS khi prod
+      sameSite: "none", // chống CSRF
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+      path: "/",
+    });
+
     // Trả dữ liệu
     return {
       user: {
         id: newUser._id,
-        username: newUser.username,
         email: newUser.email,
       },
-      token,
     };
   }
 
   // Đăng nhập
-  async login({ email, password }) {
-    // Tìm user theo email hoặc username
-    const user = await User.findOne({
-      $or: [{ email: email }],
-    });
+  async login({ email, password }, res) {
+    // Tìm user
+    const user = await User.findOne({ email });
     if (!user) throw new Error("Không tìm thấy tài khoản");
 
     // So sánh password
@@ -56,9 +61,22 @@ class AuthService {
     // Tạo token
     const token = this.generateToken({ id: user._id });
 
+    // 🔑 Set cookie HTTP-only
+    res.cookie("token", token, {
+      httpOnly: true, // không cho JS đọc
+      secure: false, // chỉ gửi qua HTTPS khi prod
+      sameSite: "none", // chống CSRF
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+      path: "/",
+    });
+
+    // Trả về thông tin user (không cần token)
     return {
-      user: { id: user._id, username: user.username, email: user.email },
-      token,
+      user: {
+        id: user._id,
+        email: user.email,
+      },
+      message: "Login success",
     };
   }
 
@@ -99,6 +117,17 @@ class AuthService {
       },
       token,
     };
+  }
+
+  async logout(res) {
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: false, // production nên là true (HTTPS)
+      sameSite: "none", // phải khớp với cookie đã set
+      path: "/", // khớp path
+    });
+
+    return { message: "Logout success" };
   }
 }
 
