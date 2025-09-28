@@ -27,11 +27,11 @@ app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
-app.get("/api/auth/me", (req, res) => {
-  console.log("raw cookie header:", req.headers.cookie);
-  console.log("parsed cookies:", req.cookies);
-  res.json({ cookies: req.cookies || null });
-});
+// app.get("/api/auth/me", (req, res) => {
+//   console.log("raw cookie header:", req.headers.cookie);
+//   console.log("parsed cookies:", req.cookies);
+//   res.json({ cookies: req.cookies || null });
+// });
 
 // Route
 route(app);
