@@ -1,15 +1,12 @@
-// routes/auth.js
-const express = require("express");
-
-const {
+import { Router } from "express";
+import {
   registerValidator,
   loginValidator,
-} = require("../validators/auth.validator");
-const validateRequest = require("../app/middleware/validateRequest.middleware");
+} from "../validators/auth.validator";
+import validateRequest from "../app/middleware/validateRequest.middleware";
+import AuthController from "../app/controller/auth.controller";
 
-const AuthController = require("../app/controller/auth.controller");
-
-const router = express.Router();
+const router = Router();
 
 // Routes gọi thẳng method của class
 router.post(
@@ -23,4 +20,4 @@ router.post("/google", AuthController.googleLogin);
 router.post("/logout", AuthController.logout);
 router.post("/refresh-token", AuthController.refreshToken);
 
-module.exports = router;
+export default router;
