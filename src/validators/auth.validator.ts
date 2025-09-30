@@ -1,7 +1,7 @@
-const { body } = require("express-validator");
+import { body } from "express-validator";
+import { ValidationChain } from "express-validator";
 
-// Đăng ký
-const registerValidator = [
+export const registerValidator: ValidationChain[] = [
   body("email")
     .trim()
     .notEmpty().withMessage("Email không được để trống")
@@ -12,15 +12,10 @@ const registerValidator = [
     .isLength({ min: 6 }).withMessage("Password phải >= 6 ký tự"),
 ];
 
-// Đăng nhập
-const loginValidator = [
+export const loginValidator: ValidationChain[] = [
   body("email")
     .notEmpty().withMessage("Vui lòng nhập Email"),
+
   body("password")
     .notEmpty().withMessage("Vui lòng nhập Password"),
 ];
-
-module.exports = {
-  registerValidator,
-  loginValidator,
-};
