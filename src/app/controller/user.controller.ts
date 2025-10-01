@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import cloudinary from "../../../cloudinary.config";
 import userService from "../services/user.service";
 
 class UserController {
@@ -23,12 +24,36 @@ class UserController {
 
   async update(req: Request, res: Response) {
     try {
-      const updatedUser = await userService.update(req.params.id as string, req.body);
+      const updatedUser = await userService.update(
+        req.params.id as string,
+        req.body
+      );
       if (!updatedUser)
         return res.status(404).json({ message: "User not found" });
       res.json(updatedUser);
     } catch (err) {
       res.status(400).json({ message: "Update failed", error: err });
+    }
+  }
+
+  async updateAvatar(req: Request, res: Response) {
+    console.log("req.file:", req.file);
+    console.log("req.body:", req.body);
+
+    try {
+      const id = req.params.id as string;
+      const file = req.file;
+
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+
+      const updatedUser = await userService.updateAvatar(id, file);
+
+      res.json({
+        message: "Avatar updated successfully",
+        user: updatedUser,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
     }
   }
 
