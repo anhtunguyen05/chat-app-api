@@ -5,9 +5,9 @@ import { verifyToken } from "../app/middleware/auth.middleware";
 
 const router = Router();
 
-router.get("/", verifyToken, UserController.getAll);
-router.get("/:id", verifyToken, UserController.getById);
-router.put("/avatar/:id", verifyToken, upload.single("file"), UserController.updateAvatar);
-router.put("/:id", verifyToken, UserController.update);
+// router.get("/", verifyToken, UserController.getAll);
+router.get("/", verifyToken, UserController.getById);
+router.put("/avatar", verifyToken, upload.single("file"), UserController.updateAvatar);
+router.put("/", verifyToken, UserController.update);
 
 export default router;

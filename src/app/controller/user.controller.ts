@@ -14,7 +14,7 @@ class UserController {
 
   async getById(req: Request, res: Response) {
     try {
-      const user = await userService.getById(req.params.id as string);
+      const user = await userService.getById(req.id as string);
       if (!user) return res.status(404).json({ message: "User not found" });
       res.json(user);
     } catch (err) {
@@ -25,7 +25,7 @@ class UserController {
   async update(req: Request, res: Response) {
     try {
       const updatedUser = await userService.update(
-        req.params.id as string,
+        req.id as string,
         req.body
       );
       if (!updatedUser)
@@ -41,7 +41,7 @@ class UserController {
     console.log("req.body:", req.body);
 
     try {
-      const id = req.params.id as string;
+      const id = req.id as string;
       const file = req.file;
 
       if (!file) return res.status(400).json({ message: "No file uploaded" });

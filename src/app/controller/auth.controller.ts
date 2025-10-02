@@ -40,7 +40,8 @@ class AuthController {
       return res.json({
         user,
         message: "Login success",
-        token: accessToken,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
       });
     } catch (err: any) {
       return res.status(400).json({ message: err.message });
