@@ -7,7 +7,9 @@ const router = Router();
 
 // router.get("/", verifyToken, UserController.getAll);
 router.get("/", verifyToken, UserController.getById);
-router.put("/avatar", verifyToken, upload.single("file"), UserController.updateAvatar);
 router.put("/", verifyToken, UserController.update);
+router.put("/avatar", verifyToken, upload.single("file"), UserController.updateAvatar);
+router.put("/cover", verifyToken, upload.single("file"), UserController.updateCover);
+
 
 export default router;

@@ -24,22 +24,19 @@ class UserController {
 
   async update(req: Request, res: Response) {
     try {
-      const updatedUser = await userService.update(
-        req.id as string,
-        req.body
-      );
+      const updatedUser = await userService.update(req.id as string, req.body);
       if (!updatedUser)
         return res.status(404).json({ message: "User not found" });
-      res.json(updatedUser);
+      res.json({
+        message: "Avatar updated successfully",
+        user: updatedUser,
+      });
     } catch (err) {
       res.status(400).json({ message: "Update failed", error: err });
     }
   }
 
   async updateAvatar(req: Request, res: Response) {
-    console.log("req.file:", req.file);
-    console.log("req.body:", req.body);
-
     try {
       const id = req.id as string;
       const file = req.file;
@@ -57,9 +54,27 @@ class UserController {
     }
   }
 
+  async updateCover(req: Request, res: Response) {
+    try {
+      const id = req.id as string;
+      const file = req.file;
+
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+
+      const updatedUser = await userService.updateCover(id, file);
+
+      res.json({
+        message: "Update Cover updated successfully",
+        user: updatedUser,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+
   async remove(req: Request, res: Response) {
     try {
-      const deletedUser = await userService.remove(req.params.id as string);
+      const deletedUser = await userService.remove(req.id as string);
       if (!deletedUser)
         return res.status(404).json({ message: "User not found" });
       res.json({ message: "User deleted", user: deletedUser });

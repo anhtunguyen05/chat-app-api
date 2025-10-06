@@ -1,5 +1,6 @@
 import cloudinary from "../../../cloudinary.config";
 import { User, IUser } from "../models/user.model";
+import uploadService from "./upload.service";
 import cloudUtil from "../../utils/cloud.util";
 
 class UserService {
@@ -22,37 +23,12 @@ class UserService {
     return await user.save();
   }
 
-  async updateAvatar(
-    id: string,
-    file: Express.Multer.File
-  ): Promise<IUser> {
-    // 1. Lấy user từ DB
-    const user = await User.findById(id);
-    if (!user) throw new Error("User not found");
+  async updateAvatar(id: string, file: Express.Multer.File): Promise<IUser> {
+    return uploadService.updateUserImage(id, file, "avatarUrl", "avatars");
+  }
 
-    // 2. Nếu có avatar cũ -> xóa
-    if (user.avatarUrl) {
-      try {
-        // avatarUrl kiểu: https://res.cloudinary.com/<cloud_name>/image/upload/v123456789/avatars/abcxyz.png
-        const parts = user.avatarUrl.split("/");
-        const publicIdWithExt = parts[parts.length - 1] as string; // abcxyz.png
-        const folder = parts[parts.length - 2]; // avatars
-        const publicId = `${folder}/${publicIdWithExt.split(".")[0]}`; // avatars/abcxyz
-
-        await cloudinary.uploader.destroy(publicId);
-      } catch (err) {
-        console.error("❌ Failed to delete old avatar:", err);
-      }
-    }
-
-    // 3. Upload ảnh mới
-    const result = await cloudUtil.uploadToCloudinary(file, "avatars");
-
-    // 4. Update user trong DB
-    user.avatarUrl = result.secure_url;
-    await user.save();
-
-    return user;
+  async updateCover(id: string, file: Express.Multer.File): Promise<IUser> {
+    return uploadService.updateUserImage(id, file, "coverUrl", "covers");
   }
 
   // Cập nhật user

@@ -10,6 +10,7 @@ class AuthController {
         oldRefreshToken as string 
       );
 
+      authService.saveToken(res, accessToken);
       authService.saveRefreshToken(res, refreshToken);
 
       return res.json({ accessToken });

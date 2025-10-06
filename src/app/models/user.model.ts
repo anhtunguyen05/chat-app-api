@@ -6,6 +6,7 @@ export interface IUser {
   password?: string;
   nickname?: string;
   avatarUrl?: string;
+  coverUrl?: string;
   online: boolean;
   lastSeen?: Date;
   createdAt: Date;
@@ -20,6 +21,7 @@ const userSchema = new Schema<IUserDocument>({
   password: { type: String, minlength: 6 },
   nickname: String,
   avatarUrl: String,
+  coverUrl: String,
   online: { type: Boolean, default: false },
   lastSeen: Date,
 }, { timestamps: true });
