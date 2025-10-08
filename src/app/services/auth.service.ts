@@ -80,6 +80,7 @@ export class AuthService {
     const hashed = await bcrypt.hash(password, 10);
 
     const newUser = await User.create({
+      nickname: email,
       email,
       password: hashed,
     });
