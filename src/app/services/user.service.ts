@@ -1,7 +1,6 @@
-import cloudinary from "../../../cloudinary.config";
 import { User, IUser } from "../models/user.model";
+import friendService from "./friend.service";
 import uploadService from "./upload.service";
-import cloudUtil from "../../utils/cloud.util";
 
 class UserService {
   // Lấy tất cả users
@@ -12,6 +11,30 @@ class UserService {
   // Tìm user theo ID
   async getById(id: string): Promise<IUser | null> {
     return await User.findById(id).select("-password");
+  }
+
+  async getBySlug(
+    slug: string,
+    currentUserId?: string
+  ): Promise<{
+    user: IUser | null;
+    relationship?: string;
+  }> {
+    // 1️⃣ Tìm user theo slug
+    const user = await User.findOne({ slug }).select("-password");
+    if (!user) return { user: null };
+
+    // 2️⃣ Nếu có currentUserId (đã đăng nhập), lấy relationship
+    let relationship;
+    if (currentUserId) {
+      relationship = await friendService.getRelationshipStatus(
+        currentUserId,
+        user.id.toString()
+      );
+    }
+
+    // 3️⃣ Trả về cả user và relationship
+    return { user, relationship };
   }
 
   // Tạo user mới

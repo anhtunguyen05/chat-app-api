@@ -22,6 +22,22 @@ class UserController {
     }
   }
 
+  async getBySlug(req: Request, res: Response) {
+    try {
+      const { slug } = req.params;
+      const currentUserId = req.id as string; // từ verifyToken middleware
+
+      const result = await userService.getBySlug(slug as string, currentUserId);
+      if (!result.user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
   async update(req: Request, res: Response) {
     try {
       const updatedUser = await userService.update(

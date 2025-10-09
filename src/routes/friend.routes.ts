@@ -4,8 +4,8 @@ import { verifyToken } from "../app/middleware/auth.middleware";
 
 const router = Router();
 
-router.post("/request", verifyToken, FriendController.sendRequest);
-router.post("/accept/:requestId", verifyToken, FriendController.acceptRequest);
+router.post("/request/:toId", verifyToken, FriendController.sendRequest);
+router.post("/accept/:fromId", verifyToken, FriendController.acceptRequest);
 router.get("/", verifyToken, FriendController.getFriends);
 router.get("/request", verifyToken, FriendController.getFriendRequests);
 
