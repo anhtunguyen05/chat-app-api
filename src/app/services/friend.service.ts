@@ -75,9 +75,7 @@ class FriendService {
     const friends = await FriendRequest.find({
       $or: [{ from: userId }, { to: userId }],
       status: "accepted",
-    })
-      .populate("from to", "nickname avatarUrl")
-      .lean();
+    }).populate("from to", "nickname avatarUrl");
 
     return friends.map((req) =>
       req.from._id.toString() === userId ? req.to : req.from

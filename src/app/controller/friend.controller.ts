@@ -63,7 +63,7 @@ class FriendController {
   async unfriend(req: Request, res: Response) {
     try {
       const userId1 = req.id; // người đang đăng nhập
-      const userId2 = req.params.fromId; // người đã gửi lời mời
+      const userId2 = req.params.userId; // người đã gửi lời mời
       const result = await friendService.unfriend(
         userId1 as string,
         userId2 as string

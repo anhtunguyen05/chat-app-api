@@ -5,7 +5,10 @@ import { verifyToken } from "../app/middleware/auth.middleware";
 const router = Router();
 
 router.post("/request/:toId", verifyToken, FriendController.sendRequest);
-router.post("/accept/:fromId", verifyToken, FriendController.acceptRequest);
+router.put("/accept/:fromId", verifyToken, FriendController.acceptRequest);
+router.put("/reject/:fromId", verifyToken, FriendController.rejectRequest);
+router.delete("/cancel/:toId", verifyToken, FriendController.cancelRequest);
+router.delete("/unfriend/:userId", verifyToken, FriendController.unfriend);
 router.get("/", verifyToken, FriendController.getFriends);
 router.get("/request", verifyToken, FriendController.getFriendRequests);
 

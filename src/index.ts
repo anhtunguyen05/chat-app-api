@@ -4,9 +4,9 @@ dotenv.config();
 import express, { Application, Request, Response } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-
-import { connect } from "./config/database";
+import { connect } from "./config/db.config";
 import route from "./routes";
+import { setupSocket } from "./config/socket.config";
 
 const app: Application = express();
 
@@ -34,5 +34,7 @@ app.get("/", (req: Request, res: Response) => {
 // ✅ Route chính
 route(app);
 
+const { server } = setupSocket(app);
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
