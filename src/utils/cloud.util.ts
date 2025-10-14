@@ -1,4 +1,4 @@
-import cloudinary from "../../cloudinary.config";
+import cloudinary from "../config/cloudinary.config";
 import streamifier from "streamifier";
 
 class CloudUtil {

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import cloudinary from "../../../cloudinary.config";
+import cloudinary from "../../config/cloudinary.config";
 import userService from "../services/user.service";
 
 class UserController {
