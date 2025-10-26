@@ -32,6 +32,7 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 // ✅ Route chính
+
 route(app);
 
 const { server } = setupSocket(app);

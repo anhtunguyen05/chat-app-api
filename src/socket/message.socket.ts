@@ -10,7 +10,7 @@ export function registerMessageSocket(io: Server, socket: Socket) {
   socket.on("sendMessage", async (data) => {
     try {
       const { senderId, receiverId, text } = data;
-
+      console.log(senderId, receiverId, text);
       // ✅ Lưu tin nhắn vào DB
       const message = await messageService.saveMessageToDB(
         senderId,
@@ -33,6 +33,10 @@ export function registerMessageSocket(io: Server, socket: Socket) {
 
   // (tùy chọn) Sự kiện user đang nhập
   socket.on("typing", ({ senderId, receiverId }) => {
-    io.to(receiverId).emit("typing", { from: senderId });
+    io.to(receiverId).emit("typing", { senderId });
+  });
+
+  socket.on("stopTyping", ({ senderId, receiverId }) => {
+    socket.to(receiverId).emit("stopTyping", { senderId });
   });
 }
