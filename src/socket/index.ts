@@ -24,22 +24,22 @@ export function initSocket(io: Server) {
       console.log(`👤 User ${userId} joined their private room`);
     });
 
-   socket.on("userOnline", (userId) => {
-  onlineUsers.set(userId, socket.id);
-  console.log("✅ User online:", userId);
+    socket.on("userOnline", (userId) => {
+      onlineUsers.set(userId, socket.id);
+      console.log("✅ User online:", userId);
 
-  // ✅ Gửi cho toàn bộ người khác biết user này online
-  socket.broadcast.emit("userStatus", { userId, isOnline: true });
+      // ✅ Gửi cho toàn bộ người khác biết user này online
+      socket.broadcast.emit("userStatus", { userId, isOnline: true });
 
-  // ✅ Gửi lại toàn bộ danh sách đang online cho user vừa kết nối
-  const allOnline = Array.from(onlineUsers.keys());
-  socket.emit("onlineList", allOnline);
-});
+      // ✅ Gửi lại toàn bộ danh sách đang online cho user vừa kết nối
+      const allOnline = Array.from(onlineUsers.keys());
+      socket.emit("onlineList", allOnline);
+    });
 
     // Đăng ký các module riêng (vd: message, notification, friend...)
     registerMessageSocket(io, socket);
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log("🔴 User disconnected:", socket.id);
 
       const userId = [...onlineUsers.entries()].find(
@@ -55,8 +55,22 @@ export function initSocket(io: Server) {
           lastSeen: lastSeenMap.get(userId),
         });
       }
-      User.findByIdAndUpdate(userId, { lastSeen: new Date() });
+     
+      try {
+        const updatedUser = await User.findByIdAndUpdate(
+          userId,
+          { lastSeen: new Date() },
+          { new: true }
+        );
 
+        if (updatedUser) {
+          console.log(`Updated lastSeen for user ${userId}`);
+        } else {
+          console.log(`User ${userId} not found in database`);
+        }
+      } catch (error) {
+        console.error("Failed to update lastSeen:", error);
+      }
     });
   });
 }
