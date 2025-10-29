@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
-import { IUser } from "../models/user.model"; 
+import { IUser } from "../models/user.model";
 import { User } from "../models/user.model";
 import cloudUtil from "../../utils/cloud.util";
 
@@ -43,6 +43,22 @@ class UploadService {
     await user.save();
 
     return user;
+  }
+
+  async uploadMessageImages(
+    files: Express.Multer.File[],
+    folder = "messages"
+  ): Promise<string[]> {
+    if (!files || files.length === 0) return [];
+
+    const urls: string[] = [];
+
+    for (const file of files) {
+      const result = await cloudUtil.uploadToCloudinary(file, folder);
+      urls.push(result.secure_url);
+    }
+
+    return urls;
   }
 }
 
