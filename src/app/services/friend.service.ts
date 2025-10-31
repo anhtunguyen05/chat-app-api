@@ -82,6 +82,28 @@ class FriendService {
     );
   }
 
+  async getNoneFriendList(userId: string) {
+    // 1️⃣ Tìm các lời mời bạn bè đã chấp nhận (tức là bạn bè thật sự)
+    const friends = await FriendRequest.find({
+      $or: [{ from: userId }, { to: userId }],
+    });
+
+    // 2️⃣ Lấy danh sách ID bạn bè
+    const friendIds = friends.map((req) =>
+      req.from.toString() === userId ? req.to.toString() : req.from.toString()
+    );
+
+    // 3️⃣ Loại bỏ cả user hiện tại khỏi danh sách
+    friendIds.push(userId);
+
+    // 4️⃣ Tìm những user KHÔNG nằm trong danh sách friendIds
+    const nonFriends = await User.find({
+      _id: { $nin: friendIds },
+    }).select("nickname avatarUrl lastSeen");
+
+    return nonFriends;
+  }
+
   async getFriendRequestList(userId: string) {
     const friends = await FriendRequest.find({
       $or: [{ to: userId }],

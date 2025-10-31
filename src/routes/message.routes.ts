@@ -5,14 +5,9 @@ import { upload } from "../app/middleware/upload.middleware";
 
 const router = Router();
 
-router.get(
-  "/conversation/:userId",
-  verifyToken,
-  MessageController.getConversation
-);
+router.get("/conversation/:userId", MessageController.getConversation);
 router.post(
   "/upload-images",
-  verifyToken,
   upload.array("images"),
   MessageController.uploadImages
 );
