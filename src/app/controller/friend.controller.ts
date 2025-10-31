@@ -84,6 +84,16 @@ class FriendController {
     }
   }
 
+  async getNoneFriends(req: Request, res: Response) {
+    try {
+      const userId = req.id;
+      const friends = await friendService.getNoneFriendList(userId as string);
+      res.json({ data: friends });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
   async getFriendRequests(req: Request, res: Response) {
     try {
       const userId = req.id;
