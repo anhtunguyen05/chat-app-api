@@ -5,13 +5,16 @@ import uploadService from "../services/upload.service";
 class MessageController {
   async getConversation(req: Request, res: Response) {
     try {
-      const user1 = req.id; // từ verifyToken middleware
+      const user1 = req.id;
       const user2 = req.params.userId;
+      const { page, limit } = req.query;
       const messages = await messageService.getConversation(
         user1 as string,
-        user2 as string
+        user2 as string,
+        page as string,
+        limit as string
       );
-      res.json(messages);
+      res.status(200).json(messages.reverse());
     } catch (err) {
       res.status(500).json({ message: "Server error", error: err });
     }
