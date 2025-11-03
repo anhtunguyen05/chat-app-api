@@ -3,6 +3,7 @@ import authRouter from "./auth.routes";
 import userRouter from "./user.routes";
 import friendRouter from "./friend.routes";
 import messageRouter from "./message.routes";
+import groupRouter from "./group.routes"
 import { verifyToken } from "../app/middleware/auth.middleware";
 
 export default function route(app: Application): void {
@@ -11,4 +12,5 @@ export default function route(app: Application): void {
   app.use("/api/users", userRouter);
   app.use("/api/friends", friendRouter);
   app.use("/api/chats", messageRouter);
+  app.use("/api/groups", groupRouter);
 }
