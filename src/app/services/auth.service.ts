@@ -112,6 +112,7 @@ export class AuthService {
         email: user.email,
         nickname: user.nickname,
         avatarUrl: user.avatarUrl,
+        slug: user.slug,
       },
       accessToken,
       refreshToken,
@@ -133,6 +134,7 @@ export class AuthService {
     if (!user) {
       user = await User.create({
         email,
+        nickname: email,
         avatarUrl: picture,
       });
     } else if (!user.avatarUrl) {
@@ -148,6 +150,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         avatar: user.avatarUrl,
+        slug: user.slug
       },
       accessToken,
       refreshToken,

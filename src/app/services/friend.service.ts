@@ -75,7 +75,7 @@ class FriendService {
     const friends = await FriendRequest.find({
       $or: [{ from: userId }, { to: userId }],
       status: "accepted",
-    }).populate("from to", "nickname avatarUrl lastSeen");
+    }).populate("from to", "nickname avatarUrl slug lastSeen");
 
     return friends.map((req) =>
       req.from._id.toString() === userId ? req.to : req.from
@@ -99,7 +99,7 @@ class FriendService {
     // 4️⃣ Tìm những user KHÔNG nằm trong danh sách friendIds
     const nonFriends = await User.find({
       _id: { $nin: friendIds },
-    }).select("nickname avatarUrl lastSeen");
+    }).select("nickname avatarUrl slug lastSeen");
 
     return nonFriends;
   }
@@ -108,7 +108,7 @@ class FriendService {
     const friends = await FriendRequest.find({
       $or: [{ to: userId }],
       status: "pending",
-    }).populate("from to", "nickname avatarUrl");
+    }).populate("from to", "nickname slug avatarUrl");
 
     return friends.map((req) =>
       req.from._id.toString() === userId ? req.to : req.from
