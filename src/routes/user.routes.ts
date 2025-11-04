@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { upload } from "../app/middleware/upload.middleware";
 import UserController from "../app/controller/user.controller";
-import { verifyToken } from "../app/middleware/auth.middleware";
 
 const router = Router();
 

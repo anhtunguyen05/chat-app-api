@@ -53,6 +53,16 @@ class MessageService {
       .limit(Number(limit))
       .populate("sender receiver", "nickname avatarUrl");
   }
+
+  async getGroupConversation(groupId: string, page = "1", limit = "20") {
+    const skip = (Number(page) - 1) * Number(limit);
+
+    return Message.find({ group: groupId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .populate("sender", "nickname avatarUrl");
+  }
 }
 
 export default new MessageService();
