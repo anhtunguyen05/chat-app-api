@@ -4,6 +4,7 @@ import { upload } from "../app/middleware/upload.middleware";
 
 const router = Router();
 
+router.get("/", MessageController.getAllConversations);
 router.get("/conversation/:userId", MessageController.getConversation);
 router.get("/group/:groupId", MessageController.getConversation);
 router.post(

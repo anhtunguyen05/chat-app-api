@@ -17,4 +17,13 @@ const groupSchema = new Schema<IGroupDocument>(
   { timestamps: true }
 );
 
+groupSchema.set("toJSON", {
+  transform: function (doc, ret: any) {
+    ret.id = ret._id;
+    delete ret._id;
+    delete ret.__v;
+    return ret;
+  },
+});
+
 export const Group = model<IGroupDocument>("Group", groupSchema);

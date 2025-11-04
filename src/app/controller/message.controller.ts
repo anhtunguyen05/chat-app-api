@@ -3,6 +3,21 @@ import messageService from "../services/message.service";
 import uploadService from "../services/upload.service";
 
 class MessageController {
+  async getAllConversations(req: Request, res: Response) {
+    try {
+      const userId = req.id;
+      if (!userId) {
+        return res.status(400).json({ message: "Thiếu userId" });
+      }
+
+      const conversations = await messageService.getAllConversations(userId);
+      res.status(200).json(conversations);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Server error", error: err });
+    }
+  }
+
   async getConversation(req: Request, res: Response) {
     try {
       const user1 = req.id; // user hiện tại
