@@ -1,6 +1,5 @@
 import { Router, Request, Response } from "express";
 import FriendController from "../app/controller/friend.controller";
-import { verifyToken } from "../app/middleware/auth.middleware";
 
 const router = Router();
 
