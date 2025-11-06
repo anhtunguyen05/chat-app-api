@@ -79,6 +79,7 @@ class MessageService {
             _id: "$target._id",
             nickname: "$target.nickname",
             avatarUrl: "$target.avatarUrl",
+            lastSeen: "$target.lastSeen"
           },
           lastMessage: 1,
         },

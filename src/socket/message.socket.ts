@@ -18,7 +18,6 @@ export function registerMessageSocket(io: Server, socket: Socket) {
         type = "text",
       } = data;
 
-      // ✅ Lưu tin nhắn vào DB
       const message = await messageService.saveMessageToDB(
         senderId,
         receiverId,
@@ -46,18 +45,17 @@ export function registerMessageSocket(io: Server, socket: Socket) {
     try {
       const { senderId, groupId, text, imageUrls = [], type = "text" } = data;
 
-      // Lưu tin nhắn
       const message = await messageService.saveMessageToDB(
         senderId,
-        null, // vì không có receiver
+        null,
         text,
         imageUrls,
         type,
-        groupId // thêm groupId ở đây
+        groupId
       );
 
       // Emit đến toàn bộ thành viên trong group (phải join vào room groupId)
-      io.to(groupId).emit("receiveGroupMessage", message);
+      io.to(groupId).emit("receiveMessage", message);
 
       socket.emit("messageSent", message);
       console.log(`👥 Group ${groupId} | ${senderId}: ${text}`);
@@ -74,11 +72,19 @@ export function registerMessageSocket(io: Server, socket: Socket) {
   });
 
   // (tùy chọn) Sự kiện user đang nhập
-  socket.on("typing", ({ senderId, receiverId }) => {
-    io.to(receiverId).emit("typing", { senderId });
+  socket.on("typing", ({ senderId, receiverId, groupId }) => {
+    if (groupId) {
+      socket.to(groupId).emit("typing", { senderId, groupId });
+    } else if (receiverId) {
+      io.to(receiverId).emit("typing", { senderId });
+    }
   });
 
-  socket.on("stopTyping", ({ senderId, receiverId }) => {
-    socket.to(receiverId).emit("stopTyping", { senderId });
+  socket.on("stopTyping", ({ senderId, receiverId, groupId }) => {
+    if (groupId) {
+      socket.to(groupId).emit("stopTyping", { senderId, groupId });
+    } else if (receiverId) {
+      socket.to(receiverId).emit("stopTyping", { senderId });
+    }
   });
 }

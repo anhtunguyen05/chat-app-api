@@ -12,10 +12,11 @@ class GroupService {
     const group = await Group.create({
       name,
       members: members.map((id) => new Types.ObjectId(id)),
+      avatarUrl: "/group-default.jpg",
       createdBy: new Types.ObjectId(createdBy),
     });
 
-    return group.populate("members", "name avatar email");
+    return group.populate("members", "nickname avatarUrl email");
   }
 
   /** 🔹 Thêm thành viên vào nhóm */
@@ -31,7 +32,7 @@ class GroupService {
     group.members.push(...membersToAdd.map((id) => new Types.ObjectId(id)));
     await group.save();
 
-    return group.populate("members", "name avatar email");
+    return group.populate("members", "nickname avatarUrl email");
   }
 
   /** 🔹 Xoá thành viên khỏi nhóm */
@@ -44,7 +45,7 @@ class GroupService {
     );
     await group.save();
 
-    return group.populate("members", "name avatar email");
+    return group.populate("members", "nickname avatarUrl email");
   }
 
   /** 🔹 Lấy tất cả nhóm của 1 user */
@@ -53,6 +54,12 @@ class GroupService {
       .populate("members", "name avatar email")
       .sort({ updatedAt: -1 });
   }
+
+  async getGroupMembers(groupId: string) {
+  return Group.findById(groupId)
+    .populate("members", "nickname avatarUrl email") 
+    .select("members"); 
+}
 }
 
 export default new GroupService();
