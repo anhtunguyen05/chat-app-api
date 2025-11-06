@@ -63,6 +63,28 @@ class GroupController {
       res.status(500).json({ error: err.message });
     }
   }
+
+  // group.controller.ts
+  async getGroupMembers(req: Request, res: Response) {
+    try {
+      const { groupId } = req.params;
+
+      if (!groupId) {
+        return res.status(400).json({ error: "Thiếu groupId" });
+      }
+
+      const group = await groupService.getGroupMembers(groupId);
+
+      if (!group) {
+        return res.status(404).json({ error: "Không tìm thấy nhóm" });
+      }
+
+      res.status(200).json(group.members);
+    } catch (err: any) {
+      console.error("❌ Lỗi khi lấy danh sách thành viên:", err);
+      res.status(500).json({ error: err.message });
+    }
+  }
 }
 
 export default new GroupController();

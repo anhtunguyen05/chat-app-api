@@ -5,8 +5,7 @@ import { upload } from "../app/middleware/upload.middleware";
 const router = Router();
 
 router.get("/", MessageController.getAllConversations);
-router.get("/conversation/:userId", MessageController.getConversation);
-router.get("/group/:groupId", MessageController.getConversation);
+router.get("/:type/:targetId", MessageController.getConversation);
 router.post(
   "/upload-images",
   upload.array("images"),

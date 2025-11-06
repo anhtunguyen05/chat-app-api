@@ -19,43 +19,50 @@ class MessageController {
   }
 
   async getConversation(req: Request, res: Response) {
-    try {
-      const user1 = req.id; // user hiện tại
-      const user2 = req.params.userId;
-      const groupId = req.params.groupId; // thêm vào nếu là nhóm
-      const { page = "1", limit = "20" } = req.query;
+  try {
+    const userId = req.id; // user hiện tại
+    const { type, targetId } = req.params;
+    const { page = "1", limit = "20" } = req.query;
 
-      if (!page || !limit) {
-        return res.status(400).json({ message: "Thiếu tham số phân trang" });
-      }
-
-      let messages;
-
-      if (groupId) {
-        // 🔹 Lấy tin nhắn trong nhóm
-        messages = await messageService.getGroupConversation(
-          groupId,
-          page as string,
-          limit as string
-        );
-      } else if (user1 && user2) {
-        // 🔹 Lấy tin nhắn 1-1
-        messages = await messageService.getConversation(
-          user1,
-          user2,
-          page as string,
-          limit as string
-        );
-      } else {
-        return res.status(400).json({ message: "Thiếu user hoặc groupId" });
-      }
-
-      res.status(200).json(messages.reverse());
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Server error", error: err });
+    if (!userId) {
+      return res.status(401).json({ message: "Chưa đăng nhập" });
     }
+
+    if (!targetId || !type) {
+      return res.status(400).json({ message: "Thiếu tham số" });
+    }
+
+    let messages;
+
+    switch (type) {
+      case "group":
+        messages = await messageService.getGroupConversation(
+          targetId,
+          page as string,
+          limit as string
+        );
+        break;
+
+      case "private":
+        messages = await messageService.getConversation(
+          userId,
+          targetId,
+          page as string,
+          limit as string
+        );
+        break;
+
+      default:
+        return res.status(400).json({ message: "Loại hội thoại không hợp lệ" });
+    }
+
+    res.status(200).json(messages.reverse());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi server", error: err });
   }
+}
+
 
   async uploadImages(req: Request, res: Response) {
     try {

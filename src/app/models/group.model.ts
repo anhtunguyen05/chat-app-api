@@ -3,6 +3,7 @@ import { Schema, model, Document, Types } from "mongoose";
 export interface IGroup {
   name: string;
   members: Types.ObjectId[];
+  avatarUrl: string,
   createdBy: Types.ObjectId;
 }
 
@@ -12,6 +13,7 @@ const groupSchema = new Schema<IGroupDocument>(
   {
     name: { type: String, required: true },
     members: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    avatarUrl:{type: String},
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true }
