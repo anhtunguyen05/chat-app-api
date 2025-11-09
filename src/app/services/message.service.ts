@@ -28,7 +28,6 @@ class MessageService {
 
     const message = await Message.create(messageData);
 
-    // ✅ Populate sender (và receiver nếu là tin 1-1)
     if (receiverId) {
       return message.populate("sender receiver", "nickname avatarUrl");
     } else {
