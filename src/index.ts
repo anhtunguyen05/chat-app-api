@@ -5,6 +5,7 @@ import express, { Application, Request, Response } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { connect } from "./config/db.config";
+import "./config/redis.config";
 import route from "./routes";
 import { setupSocket } from "./config/socket.config";
 
