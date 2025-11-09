@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import cloudinary from "../../config/cloudinary.config";
 import userService from "../services/user.service";
+import { CacheService } from "../services/redis/cache.service";
 
 class UserController {
   async getAll(req: Request, res: Response) {
@@ -25,12 +26,24 @@ class UserController {
   async getBySlug(req: Request, res: Response) {
     try {
       const { slug } = req.params;
-      const currentUserId = req.id as string; // từ verifyToken middleware
+      const currentUserId = req.id as string;
+
+      const cacheKey = `user:${slug}`;
+
+      const cachedUser = await CacheService.get(cacheKey);
+      if (cachedUser) {
+        console.log(`🟢 Cache hit for user ${slug}`);
+        return res.status(200).json(cachedUser);
+      }
 
       const result = await userService.getBySlug(slug as string, currentUserId);
       if (!result.user) {
         return res.status(404).json({ message: "User not found" });
       }
+
+      await CacheService.set(cacheKey, result, 3600); // 1h
+
+      console.log(`🟡 Cache miss → stored new data for user ${slug}`);
 
       res.json(result);
     } catch (error: any) {
@@ -44,8 +57,12 @@ class UserController {
         req.params.id as string,
         req.body
       );
+      
       if (!updatedUser)
         return res.status(404).json({ message: "User not found" });
+
+      await CacheService.del(`user:${updatedUser.slug}`);
+
       res.json({
         message: "Avatar updated successfully",
         user: updatedUser,
