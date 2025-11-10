@@ -1,75 +1,86 @@
 import { Server, Socket } from "socket.io";
 import { registerMessageSocket } from "./message.socket";
 import { User } from "../app/models/user.model";
+import redis from "../config/redis.config";
 
 let ioInstance: Server;
 
 /**
  * Khởi tạo Socket.IO và đăng ký các module con
  */
-
-const onlineUsers = new Map(); // userId -> socketId
-const lastSeenMap = new Map(); // userId -> Date
-
 export function initSocket(io: Server) {
   ioInstance = io;
 
   io.on("connection", (socket: Socket) => {
     console.log("🟢 User connected:", socket.id);
 
-    // Mỗi client nên join room riêng (theo userId)
-    socket.on("join", (data) => {
+    // Khi user join phòng riêng của họ
+    socket.on("join", async (data) => {
       const { userId } = data;
+      if (!userId) return;
+
       socket.join(userId);
       console.log(`👤 User ${userId} joined their private room`);
-    });
 
-    socket.on("userOnline", (userId) => {
-      onlineUsers.set(userId, socket.id);
-      console.log("✅ User online:", userId);
+      // ✅ Thêm user này vào danh sách online trong Redis
+      await redis.sadd("online_users", userId);
 
-      // ✅ Gửi cho toàn bộ người khác biết user này online
+      // ✅ Lưu socketId tương ứng userId để xử lý disconnect chính xác
+      await redis.set(`socket:${socket.id}`, userId);
+
+      // ✅ Thông báo cho toàn bộ client khác biết user này online
       socket.broadcast.emit("userStatus", { userId, isOnline: true });
 
-      // ✅ Gửi lại toàn bộ danh sách đang online cho user vừa kết nối
-      const allOnline = Array.from(onlineUsers.keys());
-      socket.emit("onlineList", allOnline);
+      // ✅ Gửi danh sách user đang online từ Redis về client
+      const onlineList = await redis.smembers("online_users");
+      socket.emit("onlineList", onlineList);
+
+      console.log("✅ User online:", userId);
     });
 
-    // Đăng ký các module riêng (vd: message, notification, friend...)
+    // Đăng ký module message, notification, friend...
     registerMessageSocket(io, socket);
 
+    // Khi user disconnect
     socket.on("disconnect", async () => {
       console.log("🔴 User disconnected:", socket.id);
 
-      const userId = [...onlineUsers.entries()].find(
-        ([, id]) => id === socket.id
-      )?.[0];
-
-      if (userId) {
-        onlineUsers.delete(userId);
-        lastSeenMap.set(userId, new Date());
-        io.emit("userStatus", {
-          userId,
-          isOnline: false,
-          lastSeen: lastSeenMap.get(userId),
-        });
-      }
-     
       try {
-        const updatedUser = await User.findByIdAndUpdate(
-          userId,
-          { lastSeen: new Date() },
-          { new: true }
-        );
+        // Lấy userId từ socketId
+        const userId = await redis.get(`socket:${socket.id}`);
+        if (!userId) return;
 
-        if (updatedUser) {
-          console.log(`Updated lastSeen for user ${userId}`);
-        } else {
-          console.log(`User ${userId} not found in database`);
+        // Xoá socket mapping
+        await redis.del(`socket:${socket.id}`);
+
+        // Kiểm tra xem user này còn socket nào khác online không
+        const allSockets = await io.fetchSockets();
+        const stillOnline = allSockets.some(async (s) => {
+          const uid = await redis.get(`socket:${s.id}`);
+          return uid === userId;
+        });
+
+        if (!stillOnline) {
+          // Xóa user khỏi danh sách online
+          await redis.srem("online_users", userId);
+
+          // Cập nhật lastSeen vào Redis + DB
+          const lastSeen = new Date().toISOString();
+          await redis.hset("last_seen", userId, lastSeen);
+
+          await User.findByIdAndUpdate(userId, { lastSeen });
+
+          // Gửi event cho toàn bộ client
+          io.emit("userStatus", {
+            userId,
+            isOnline: false,
+            lastSeen,
+          });
+
+          console.log(`🕒 Updated lastSeen for user ${userId}`);
         }
       } catch (error) {
-        console.error("Failed to update lastSeen:", error);
+        console.error("❌ Error handling disconnect:", error);
       }
     });
   });
