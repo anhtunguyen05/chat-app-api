@@ -7,7 +7,13 @@ import redis from "../config/redis.config";
 export function registerMessageSocket(io: Server, socket: Socket) {
   socket.on("sendMessage", async (data) => {
     try {
-      const { senderId, receiverId, text, imageUrls = [], type = "text" } = data;
+      const {
+        senderId,
+        receiverId,
+        text,
+        imageUrls = [],
+        type = "text",
+      } = data;
 
       // ✅ 1. Lưu vào MongoDB
       const message = await messageService.saveMessageToDB(
@@ -43,7 +49,14 @@ export function registerMessageSocket(io: Server, socket: Socket) {
 
   socket.on("sendGroupMessage", async (data) => {
     try {
-      const { senderId, groupId, text, imageUrls = [], type = "text", members } = data;
+      const {
+        senderId,
+        groupId,
+        text,
+        imageUrls = [],
+        type = "text",
+        members,
+      } = data;
 
       // ✅ 1. Lưu vào MongoDB
       const message = await messageService.saveMessageToDB(
@@ -90,12 +103,39 @@ export function registerMessageSocket(io: Server, socket: Socket) {
         const messages = pending.map((p) => JSON.parse(p));
         socket.emit("pendingMessages", messages);
         await redis.del(pendingKey);
-        console.log(`📨 Delivered ${messages.length} pending messages to ${userId}`);
+        console.log(
+          `📨 Delivered ${messages.length} pending messages to ${userId}`
+        );
       }
     } catch (err) {
       console.error("❌ Failed to get pending messages:", err);
     }
   });
+
+socket.on("markAsRead", async (data) => {
+  try {
+    const { userId, chatId, isGroup } = data;
+
+    const redisKey = isGroup
+      ? `read_status:group:${chatId}`
+      : `read_status:user:${chatId}`;
+
+    // ✅ 1. Lưu trạng thái "đã đọc" vào Redis
+    // -> Giúp những user khác thấy ngay mà không cần query DB
+    await redis.hset(redisKey, userId, Date.now());
+
+    // ✅ 2. Gửi sự kiện "đã đọc" cho toàn bộ user trong phòng
+    io.to(chatId).emit("messageRead", { chatId, userId });
+
+    // ✅ 3. (Tùy chọn) batch update DB định kỳ
+    // -> Giúp giảm tần suất ghi DB
+    await redis.lpush("read_updates_queue", JSON.stringify({ userId, chatId, isGroup }));
+
+    console.log(`👀 ${isGroup ? "Group" : "Chat"} ${chatId}: ${userId} marked as read`);
+  } catch (err) {
+    console.error("❌ Error marking messages as read:", err);
+  }
+});
 
 
   socket.on("joinGroup", (groupId) => {
@@ -103,9 +143,6 @@ export function registerMessageSocket(io: Server, socket: Socket) {
     console.log(`👥 User ${socket.id} joined group room ${groupId}`);
   });
 
-  // -------------------------------
-  // ✍️ TYPING INDICATOR
-  // -------------------------------
   socket.on("typing", ({ senderId, receiverId, groupId }) => {
     if (groupId) {
       socket.to(groupId).emit("typing", { senderId, groupId });

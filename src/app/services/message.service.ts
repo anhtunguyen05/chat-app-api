@@ -35,6 +35,28 @@ class MessageService {
     }
   }
 
+  async markMessagesAsRead(userId: string, conversationId: string) {
+    await Message.updateMany(
+      {
+        receiver: userId,
+        sender: conversationId,
+        isRead: false,
+      },
+      { isRead: true }
+    );
+  }
+
+  async markGroupMessagesAsRead(userId: string, groupId: string) {
+    await Message.updateMany(
+      {
+        group: groupId,
+        isRead: false,
+        readBy: { $ne: userId },
+      },
+      { $push: { readBy: userId } }
+    );
+  }
+
   async getAllConversations(userId: string) {
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
@@ -78,7 +100,7 @@ class MessageService {
             _id: "$target._id",
             nickname: "$target.nickname",
             avatarUrl: "$target.avatarUrl",
-            lastSeen: "$target.lastSeen"
+            lastSeen: "$target.lastSeen",
           },
           lastMessage: 1,
         },
