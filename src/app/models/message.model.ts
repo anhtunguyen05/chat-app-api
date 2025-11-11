@@ -7,6 +7,8 @@ export interface IMessage {
   text: string;
   imageUrls?: string[];
   type: "text" | "sticker" | "image" | "video" | "mixed";
+  isRead: boolean;
+  readBy: Types.ObjectId[]; // danh sách người đã đọc (dùng cho nhóm)
   createdAt: Date;
 }
 
@@ -24,6 +26,8 @@ const messageSchema = new Schema<IMessageDocument>(
       enum: ["text", "sticker", "image", "video", "mixed"],
       default: "text",
     },
+    isRead: { type: Boolean, default: false },
+    readBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
 );
@@ -36,6 +40,5 @@ messageSchema.set("toJSON", {
     return ret;
   },
 });
-
 
 export const Message = model<IMessageDocument>("Message", messageSchema);

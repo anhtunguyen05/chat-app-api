@@ -17,8 +17,8 @@ connect();
 // ✅ CORS
 app.use(
   cors({
-    origin: "http://localhost:3000", // hoặc "*" cho dev
-    credentials: true,               // bật nếu dùng cookie
+    origin: "http://localhost:3000", 
+    credentials: true,              
   })
 );
 
