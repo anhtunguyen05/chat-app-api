@@ -53,32 +53,22 @@ export function initSocket(io: Server) {
         // Xoá socket mapping
         await redis.del(`socket:${socket.id}`);
 
-        // Kiểm tra xem user này còn socket nào khác online không
-        const allSockets = await io.fetchSockets();
-        const stillOnline = allSockets.some(async (s) => {
-          const uid = await redis.get(`socket:${s.id}`);
-          return uid === userId;
+        await redis.srem("online_users", userId);
+
+        // Cập nhật lastSeen vào Redis + DB
+        const lastSeen = new Date().toISOString();
+        await redis.hset("last_seen", userId, lastSeen);
+
+        await User.findByIdAndUpdate(userId, { lastSeen });
+
+        // Gửi event cho toàn bộ client
+        io.emit("userStatus", {
+          userId,
+          isOnline: false,
+          lastSeen,
         });
 
-        if (!stillOnline) {
-          // Xóa user khỏi danh sách online
-          await redis.srem("online_users", userId);
-
-          // Cập nhật lastSeen vào Redis + DB
-          const lastSeen = new Date().toISOString();
-          await redis.hset("last_seen", userId, lastSeen);
-
-          await User.findByIdAndUpdate(userId, { lastSeen });
-
-          // Gửi event cho toàn bộ client
-          io.emit("userStatus", {
-            userId,
-            isOnline: false,
-            lastSeen,
-          });
-
-          console.log(`🕒 Updated lastSeen for user ${userId}`);
-        }
+        console.log(`🕒 Updated lastSeen for user ${userId}`);
       } catch (error) {
         console.error("❌ Error handling disconnect:", error);
       }

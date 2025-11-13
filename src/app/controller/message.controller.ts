@@ -20,7 +20,7 @@ class MessageController {
 
   async getConversation(req: Request, res: Response) {
   try {
-    const userId = req.id; // user hiện tại
+    const userId = req.id; 
     const { type, targetId } = req.params;
     const { page = "1", limit = "20" } = req.query;
 
