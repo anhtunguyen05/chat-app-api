@@ -12,7 +12,6 @@ class MessageService {
     type: string,
     groupId?: string | null
   ) {
-    // ✅ Xác định loại tin nhắn
     if (!receiverId && !groupId) {
       throw new Error("Must provide either receiverId or groupId");
     }
@@ -24,7 +23,14 @@ class MessageService {
       type,
       receiver: receiverId || null,
       group: groupId || null,
+      createdAt: new Date(),
     };
+
+    if (groupId) {
+      messageData.readBy = [senderId];
+    } else {
+      messageData.isRead = false;
+    }
 
     const message = await Message.create(messageData);
 
@@ -100,9 +106,16 @@ class MessageService {
             _id: "$target._id",
             nickname: "$target.nickname",
             avatarUrl: "$target.avatarUrl",
-            lastSeen: "$target.lastSeen",
           },
           lastMessage: 1,
+          // 🔹 Người gửi -> true, người nhận -> theo isRead
+          isRead: {
+            $cond: [
+              { $eq: ["$lastMessage.sender", userObjectId] },
+              true, // mình gửi thì luôn đã đọc
+              "$lastMessage.isRead", // nếu mình là người nhận -> lấy trạng thái thật
+            ],
+          },
         },
       },
     ]);
@@ -112,6 +125,7 @@ class MessageService {
       type: c.type,
       target: toId(c.target),
       lastMessage: c.lastMessage ? toId(c.lastMessage) : null,
+      isRead: c.isRead,
     }));
 
     // 🔸 2. Cuộc hội thoại nhóm
@@ -124,6 +138,20 @@ class MessageService {
       { $match: { group: { $in: groupIds } } },
       { $sort: { createdAt: -1 } },
       { $group: { _id: "$group", lastMessage: { $first: "$$ROOT" } } },
+      {
+        $project: {
+          _id: 1,
+          lastMessage: 1,
+          // 🔹 Kiểm tra nếu userId có trong danh sách đã đọc
+          isRead: {
+            $cond: [
+              { $in: [userObjectId, "$lastMessage.readBy"] },
+              true,
+              false,
+            ],
+          },
+        },
+      },
     ]);
 
     const groupConvos = groups.map((group) => {
@@ -132,6 +160,7 @@ class MessageService {
         id: group._id,
         type: "group",
         target: toId(group),
+        isRead: last ? last.isRead : true,
         lastMessage: last ? toId(last.lastMessage) : null,
       };
     });
