@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { Message } from "../app/models/message.model";
+import { Group } from "../app/models/group.model";
 import messageService from "../app/services/message.service";
 import uploadService from "../app/services/upload.service";
 import redis from "../config/redis.config";
@@ -49,14 +50,7 @@ export function registerMessageSocket(io: Server, socket: Socket) {
 
   socket.on("sendGroupMessage", async (data) => {
     try {
-      const {
-        senderId,
-        groupId,
-        text,
-        imageUrls = [],
-        type = "text",
-        members,
-      } = data;
+      const { senderId, groupId, text, imageUrls = [], type = "text" } = data;
 
       // ✅ 1. Lưu vào MongoDB
       const message = await messageService.saveMessageToDB(
@@ -68,24 +62,32 @@ export function registerMessageSocket(io: Server, socket: Socket) {
         groupId
       );
 
-      // ✅ 2. Gửi đến tất cả thành viên online
+      // ✅ 2. Lấy danh sách thành viên nhóm từ DB
+      const group = await Group.findById(groupId).select("members").lean();
+
+      if (!group) {
+        socket.emit("error", { message: "Group not found" });
+        return;
+      }
+
+      const members = group.members.map((m) => m.toString());
       const onlineUsers = await redis.smembers("online_users");
 
+      // ✅ 3. Gửi đến các thành viên
       for (const memberId of members) {
-        if (memberId === senderId) continue; // bỏ qua người gửi
+        if (memberId === senderId) continue;
 
         if (onlineUsers.includes(memberId)) {
           io.to(memberId).emit("receiveMessage", message);
           console.log(`👥 Sent group message to online member ${memberId}`);
         } else {
-          // ✅ 3. Nếu offline → lưu tin nhắn pending riêng từng user
           const pendingKey = `pending:${memberId}`;
           await redis.lpush(pendingKey, JSON.stringify(message));
           console.log(`💤 Member ${memberId} offline — saved group message`);
         }
       }
 
-      // ✅ 4. Gửi phản hồi lại cho người gửi để cập nhật UI
+      // ✅ 4. Gửi phản hồi lại cho người gửi
       socket.emit("messageSent", message);
       console.log(`📢 Group ${groupId} | ${senderId}: ${text}`);
     } catch (err) {
@@ -112,31 +114,36 @@ export function registerMessageSocket(io: Server, socket: Socket) {
     }
   });
 
-socket.on("markAsRead", async (data) => {
-  try {
-    const { userId, chatId, isGroup } = data;
+  socket.on("markAsRead", async (data) => {
+    try {
+      const { userId, chatId, isGroup } = data;
 
-    const redisKey = isGroup
-      ? `read_status:group:${chatId}`
-      : `read_status:user:${chatId}`;
+      const redisKey = isGroup
+        ? `read_status:group:${chatId}`
+        : `read_status:user:${chatId}`;
 
-    // ✅ 1. Lưu trạng thái "đã đọc" vào Redis
-    // -> Giúp những user khác thấy ngay mà không cần query DB
-    await redis.hset(redisKey, userId, Date.now());
+      // ✅ 1. Lưu trạng thái "đã đọc" vào Redis
+      // -> Giúp những user khác thấy ngay mà không cần query DB
+      await redis.hset(redisKey, userId, Date.now());
 
-    // ✅ 2. Gửi sự kiện "đã đọc" cho toàn bộ user trong phòng
-    io.to(chatId).emit("messageRead", { chatId, userId });
+      // ✅ 2. Gửi sự kiện "đã đọc" cho toàn bộ user trong phòng
+      io.to(chatId).emit("messageRead", { chatId, userId });
 
-    // ✅ 3. (Tùy chọn) batch update DB định kỳ
-    // -> Giúp giảm tần suất ghi DB
-    await redis.lpush("read_updates_queue", JSON.stringify({ userId, chatId, isGroup }));
-
-    console.log(`👀 ${isGroup ? "Group" : "Chat"} ${chatId}: ${userId} marked as read`);
-  } catch (err) {
-    console.error("❌ Error marking messages as read:", err);
-  }
-});
-
+      // ✅ 3. (Tùy chọn) batch update DB định kỳ
+      // -> Giúp giảm tần suất ghi DB
+      await redis.lpush(
+        "read_updates_queue",
+        JSON.stringify({ userId, chatId, isGroup })
+      );
+      if (isGroup) await messageService.markGroupMessagesAsRead(userId, chatId);
+      else await messageService.markMessagesAsRead(userId, chatId);
+      console.log(
+        `👀 ${isGroup ? "Group" : "Chat"} ${chatId}: ${userId} marked as read`
+      );
+    } catch (err) {
+      console.error("❌ Error marking messages as read:", err);
+    }
+  });
 
   socket.on("joinGroup", (groupId) => {
     socket.join(groupId);

@@ -3,6 +3,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { OAuth2Client } from "google-auth-library";
 import { User, IUser } from "../models/user.model"; // cần tạo type cho User
+import { UnauthorizedError, BadRequestError } from "../errors";
 // Nếu bạn chưa có IUserDocument:
 //   export interface IUserDocument extends Document { email:string; password?:string; avatar?:string; }
 
@@ -75,7 +76,7 @@ export class AuthService {
 
   async register({ email, password }: { email: string; password: string }) {
     const existing = await User.findOne({ email });
-    if (existing) throw new Error("Email đã tồn tại");
+    if (existing) throw new BadRequestError("Email đã tồn tại");
 
     const hashed = await bcrypt.hash(password, 10);
 
@@ -98,10 +99,11 @@ export class AuthService {
     res?: Response
   ) {
     const user = await User.findOne({ email });
-    if (!user || !user.password) throw new Error("Không tìm thấy tài khoản");
+    if (!user || !user.password)
+      throw new BadRequestError("Email và password là bắt buộc");
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new Error("Sai mật khẩu");
+    if (!isMatch) throw new UnauthorizedError("Email hoặc password không đúng");
 
     const accessToken = this.generateToken({ id: user.id.toString() });
     const refreshToken = this.generateRefreshToken({ id: user.id.toString() });
@@ -150,7 +152,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         avatar: user.avatarUrl,
-        slug: user.slug
+        slug: user.slug,
       },
       accessToken,
       refreshToken,
