@@ -1,6 +1,7 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import {User} from "../models/user.model";
 import authService from "../services/auth.service";
+import { asyncHandler } from "../../utils/asyncHandler.util";
 
 class AuthController {
   async refreshToken(req: Request, res: Response): Promise<Response> {
@@ -28,7 +29,7 @@ class AuthController {
     }
   }
 
-  async login(req: Request, res: Response): Promise<Response> {
+  async login(req: Request, res: Response, ): Promise<Response> {
     try {
       const { user, accessToken, refreshToken } = await authService.login(
         req.body,

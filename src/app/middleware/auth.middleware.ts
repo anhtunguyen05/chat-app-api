@@ -5,13 +5,6 @@ interface AuthPayload extends JwtPayload {
   id: string;
 }
 
-// 🔹 Mở rộng interface Request để có thể gắn userId vào req
-declare module "express-serve-static-core" {
-  interface Request {
-    id?: string;
-  }
-}
-
 export function verifyToken(
   req: Request,
   res: Response,
