@@ -1,44 +1,52 @@
 import mongoose from "mongoose";
+import { Conversation } from "../models/conversation.model";
+import { ConversationParticipant } from "../models/conversationParticipant.model";
 import { Message } from "../models/message.model";
 import { Group } from "../models/group.model";
 import uploadService from "./upload.service";
 
 class MessageService {
-  async saveMessageToDB(
-    senderId: string,
-    receiverId: string | null,
-    text: string,
-    imageUrls: string[],
-    type: string,
-    groupId?: string | null
-  ) {
-    if (!receiverId && !groupId) {
-      throw new Error("Must provide either receiverId or groupId");
+  async saveMessageToDB({
+    senderId,
+    conversationId,
+    text,
+    imageUrls,
+    type,
+  }: {
+    senderId: string;
+    conversationId: string | null;
+    text: string;
+    imageUrls: string[];
+    type: "text" | "image" | "file";
+  }) {
+    const conversation = await Conversation.findById(conversationId);
+
+    if (!conversation) {
+      throw new Error("Conversation not found");
     }
 
-    const messageData: any = {
+    // Tạo message
+    const message = await Message.create({
       sender: senderId,
+      conversation: conversationId,
       text,
       imageUrls,
       type,
-      receiver: receiverId || null,
-      group: groupId || null,
       createdAt: new Date(),
-    };
+    });
 
-    if (groupId) {
-      messageData.readBy = [senderId];
-    } else {
-      messageData.isRead = false;
-    }
+    // Cập nhật lastMessage
+    conversation.lastMessage = message.id;
+    await conversation.save();
 
-    const message = await Message.create(messageData);
+    // Cập nhật lastSeenMessage của sender
+    await ConversationParticipant.findOneAndUpdate(
+      { conversation: conversationId, user: senderId },
+      { lastSeenMessage: message.id }
+    );
 
-    if (receiverId) {
-      return message.populate("sender receiver", "nickname avatarUrl");
-    } else {
-      return message.populate("sender", "nickname avatarUrl");
-    }
+    // Trả về message có populate
+    return message.populate("sender", "nickname avatarUrl");
   }
 
   async markMessagesAsRead(userId: string, conversationId: string) {
@@ -63,133 +71,15 @@ class MessageService {
     );
   }
 
-  async getAllConversations(userId: string) {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-
-    /** 🔹 Helper đổi _id -> id */
-    const toId = (obj: any) => {
-      if (!obj) return null;
-      const { _id, __v, ...rest } = obj;
-      return { id: _id, ...rest };
-    };
-
-    // 🔸 1. Cuộc hội thoại cá nhân
-    const privateConvos = await Message.aggregate([
-      {
-        $match: {
-          group: null,
-          $or: [{ sender: userObjectId }, { receiver: userObjectId }],
-        },
-      },
-      { $sort: { createdAt: -1 } },
-      {
-        $group: {
-          _id: {
-            $cond: [{ $eq: ["$sender", userObjectId] }, "$receiver", "$sender"],
-          },
-          lastMessage: { $first: "$$ROOT" },
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "_id",
-          foreignField: "_id",
-          as: "target",
-        },
-      },
-      { $unwind: "$target" },
-      {
-        $project: {
-          type: { $literal: "private" },
-          target: {
-            _id: "$target._id",
-            nickname: "$target.nickname",
-            avatarUrl: "$target.avatarUrl",
-          },
-          lastMessage: 1,
-          // 🔹 Người gửi -> true, người nhận -> theo isRead
-          isRead: {
-            $cond: [
-              { $eq: ["$lastMessage.sender", userObjectId] },
-              true, // mình gửi thì luôn đã đọc
-              "$lastMessage.isRead", // nếu mình là người nhận -> lấy trạng thái thật
-            ],
-          },
-        },
-      },
-    ]);
-
-    const formattedPrivate = privateConvos.map((c) => ({
-      id: c._id,
-      type: c.type,
-      target: toId(c.target),
-      lastMessage: c.lastMessage ? toId(c.lastMessage) : null,
-      isRead: c.isRead,
-    }));
-
-    // 🔸 2. Cuộc hội thoại nhóm
-    const groups = await Group.find({ members: userObjectId })
-      .select("_id name avatarUrl")
-      .lean();
-
-    const groupIds = groups.map((g) => g._id);
-    const groupLastMessages = await Message.aggregate([
-      { $match: { group: { $in: groupIds } } },
-      { $sort: { createdAt: -1 } },
-      { $group: { _id: "$group", lastMessage: { $first: "$$ROOT" } } },
-      {
-        $project: {
-          _id: 1,
-          lastMessage: 1,
-          // 🔹 Kiểm tra nếu userId có trong danh sách đã đọc
-          isRead: {
-            $cond: [
-              { $in: [userObjectId, "$lastMessage.readBy"] },
-              true,
-              false,
-            ],
-          },
-        },
-      },
-    ]);
-
-    const groupConvos = groups.map((group) => {
-      const last = groupLastMessages.find((m) => m._id.equals(group._id));
-      return {
-        id: group._id,
-        type: "group",
-        target: toId(group),
-        isRead: last ? last.isRead : true,
-        lastMessage: last ? toId(last.lastMessage) : null,
-      };
-    });
-
-    // 🔸 3. Gộp và sắp xếp
-    return [...formattedPrivate, ...groupConvos].sort((a, b) => {
-      const timeA = a.lastMessage?.createdAt
-        ? new Date(a.lastMessage.createdAt).getTime()
-        : 0;
-      const timeB = b.lastMessage?.createdAt
-        ? new Date(b.lastMessage.createdAt).getTime()
-        : 0;
-      return timeB - timeA;
-    });
-  }
-
   async getConversation(
-    user1: string,
-    user2: string,
+    conversationId: string,
     page = "1",
     limit = "20"
   ) {
     const skip = (Number(page) - 1) * Number(limit);
 
     return Message.find({
-      $or: [
-        { sender: user1, receiver: user2 },
-        { sender: user2, receiver: user1 },
-      ],
+      conversation: conversationId,
     })
       .sort({ createdAt: -1 })
       .skip(skip)

@@ -1,5 +1,7 @@
 import { Types } from "mongoose";
 import { User } from "../models/user.model";
+import { Conversation } from "../models/conversation.model";
+import { ConversationParticipant } from "../models/conversationParticipant.model";
 import { FriendRequest } from "../models/friendRequest.model";
 
 class FriendService {
@@ -20,19 +22,52 @@ class FriendService {
   }
 
   async acceptFriendRequest(fromId: string, toId: string) {
-    const request = await FriendRequest.findOne({
-      from: fromId,
-      to: toId,
-      status: "pending",
+  const request = await FriendRequest.findOne({
+    from: fromId,
+    to: toId,
+    status: "pending",
+  });
+  if (!request) throw new Error("Không tìm thấy yêu cầu kết bạn");
+
+  // 1. Cập nhật trạng thái
+  request.status = "accepted";
+  await request.save();
+
+  // 2. Kiểm tra xem conversation 1-1 đã tồn tại chưa
+  let conversation = await Conversation.findOne({
+    type: "private",
+    participants: { $all: [fromId, toId] },
+  });
+
+  // 3. Nếu chưa tồn tại → tạo mới conversation
+  if (!conversation) {
+    conversation = await Conversation.create({
+      type: "private",
+      participants: [fromId, toId],
     });
-    if (!request) throw new Error("Không tìm thấy yêu cầu kết bạn");
 
-    request.status = "accepted";
-    await request.save();
-
-    // ✅ Sau này có thể thêm logic thêm bạn vào danh sách friends của cả 2 users
-    return request;
+    // Tạo participants cho cả 2 user
+    await ConversationParticipant.create([
+      {
+        conversation: conversation._id,
+        user: fromId,
+        role: "member",
+      },
+      {
+        conversation: conversation._id,
+        user: toId,
+        role: "member",
+      },
+    ]);
   }
+
+  // 4. Có thể trả cả conversation nếu FE cần
+  return {
+    request,
+    conversationId: conversation._id,
+  };
+}
+
 
   async rejectFriendRequest(fromId: string, toId: string) {
     const request = await FriendRequest.findOne({

@@ -45,7 +45,6 @@ class MessageController {
 
       case "private":
         messages = await messageService.getConversation(
-          userId,
           targetId,
           page as string,
           limit as string
