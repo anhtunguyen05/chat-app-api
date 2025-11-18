@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { Message } from "../app/models/message.model";
 import { Group } from "../app/models/group.model";
+import { Conversation } from "../app/models/conversation.model";
 import messageService from "../app/services/message.service";
 import uploadService from "../app/services/upload.service";
 import redis from "../config/redis.config";
@@ -10,91 +11,103 @@ export function registerMessageSocket(io: Server, socket: Socket) {
     try {
       const {
         senderId,
-        receiverId,
+        conversationId,
         text,
         imageUrls = [],
         type = "text",
       } = data;
 
-      // ✅ 1. Lưu vào MongoDB
-      const message = await messageService.saveMessageToDB(
+      // 1. Lưu DB (kiểu mới)
+      const message = await messageService.saveMessageToDB({
         senderId,
-        receiverId,
-        text,
-        imageUrls,
-        type
-      );
-
-      // ✅ 2. Kiểm tra người nhận có online không
-      const onlineUsers = await redis.smembers("online_users");
-      const isOnline = onlineUsers.includes(receiverId);
-
-      if (isOnline) {
-        // 👉 Online → gửi ngay
-        io.to(receiverId).emit("receiveMessage", message);
-        console.log(`💬 Message sent to online user ${receiverId}`);
-      } else {
-        // 👉 Offline → lưu pending
-        const pendingKey = `pending:${receiverId}`;
-        await redis.lpush(pendingKey, JSON.stringify(message));
-        console.log(`💤 User ${receiverId} offline — saved to Redis`);
-      }
-
-      // ✅ 3. Phản hồi lại cho người gửi
-      socket.emit("messageSent", message);
-    } catch (err) {
-      console.error("❌ Error sending message:", err);
-      socket.emit("error", { message: "Failed to send message" });
-    }
-  });
-
-  socket.on("sendGroupMessage", async (data) => {
-    try {
-      const { senderId, groupId, text, imageUrls = [], type = "text" } = data;
-
-      // ✅ 1. Lưu vào MongoDB
-      const message = await messageService.saveMessageToDB(
-        senderId,
-        null,
+        conversationId,
         text,
         imageUrls,
         type,
-        groupId
-      );
+      });
 
-      // ✅ 2. Lấy danh sách thành viên nhóm từ DB
-      const group = await Group.findById(groupId).select("members").lean();
+      // 2. Lấy conversation để biết member nào cần nhận
+      const conversation = await Conversation.findById(conversationId)
+        .populate("participants.user", "id")
+        .lean();
 
-      if (!group) {
-        socket.emit("error", { message: "Group not found" });
+      if (!conversation) {
+        socket.emit("error", { message: "Conversation not found" });
         return;
       }
 
-      const members = group.members.map((m) => m.toString());
+      const members = conversation.participants.map((p: any) =>
+        p.toString()
+      );
+
       const onlineUsers = await redis.smembers("online_users");
 
-      // ✅ 3. Gửi đến các thành viên
+      // 3. Gửi message đến các thành viên (trừ sender)
       for (const memberId of members) {
         if (memberId === senderId) continue;
 
         if (onlineUsers.includes(memberId)) {
           io.to(memberId).emit("receiveMessage", message);
-          console.log(`👥 Sent group message to online member ${memberId}`);
         } else {
-          const pendingKey = `pending:${memberId}`;
-          await redis.lpush(pendingKey, JSON.stringify(message));
-          console.log(`💤 Member ${memberId} offline — saved group message`);
+          await redis.lpush(`pending:${memberId}`, JSON.stringify(message));
         }
       }
 
-      // ✅ 4. Gửi phản hồi lại cho người gửi
+      // 4. Gửi lại cho người gửi
       socket.emit("messageSent", message);
-      console.log(`📢 Group ${groupId} | ${senderId}: ${text}`);
     } catch (err) {
-      console.error("❌ Error sending group message:", err);
-      socket.emit("error", { message: "Failed to send group message" });
+      console.error("❌ sendMessage error:", err);
+      socket.emit("error", { message: "Failed to send message" });
     }
   });
+
+  // socket.on("sendGroupMessage", async (data) => {
+  //   try {
+  //     const { senderId, groupId, text, imageUrls = [], type = "text" } = data;
+
+  //     // ✅ 1. Lưu vào MongoDB
+  //     const message = await messageService.saveMessageToDB(
+  //       senderId,
+  //       null,
+  //       text,
+  //       imageUrls,
+  //       type,
+  //       groupId
+  //     );
+
+  //     // ✅ 2. Lấy danh sách thành viên nhóm từ DB
+  //     const group = await Group.findById(groupId).select("members").lean();
+
+  //     if (!group) {
+  //       socket.emit("error", { message: "Group not found" });
+  //       return;
+  //     }
+
+  //     const members = group.members.map((m) => m.toString());
+  //     const onlineUsers = await redis.smembers("online_users");
+
+  //     // ✅ 3. Gửi đến các thành viên
+  //     for (const memberId of members) {
+  //       if (memberId === senderId) continue;
+
+  //       if (onlineUsers.includes(memberId)) {
+  //         io.to(memberId).emit("receiveMessage", message);
+  //         console.log(`👥 Sent group message to online member ${memberId}`);
+  //       } else {
+  //         const pendingKey = `pending:${memberId}`;
+  //         await redis.lpush(pendingKey, JSON.stringify(message));
+  //         console.log(`💤 Member ${memberId} offline — saved group message`);
+  //       }
+  //     }
+
+  //     // ✅ 4. Gửi phản hồi lại cho người gửi
+  //     socket.emit("messageSent", message);
+  //     console.log(`📢 Group ${groupId} | ${senderId}: ${text}`);
+  //   } catch (err) {
+  //     console.error("❌ Error sending group message:", err);
+  //     socket.emit("error", { message: "Failed to send group message" });
+  //   }
+  // });
 
   socket.on("getPendingMessages", async (userId) => {
     try {
