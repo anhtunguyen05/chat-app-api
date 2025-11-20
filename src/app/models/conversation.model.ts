@@ -2,8 +2,9 @@ import { Schema, model, Document, Types } from "mongoose";
 
 export interface IConversation {
   type: "private" | "group";
+  name?: string; // tên nhóm
+  avatar?: string; // ảnh nhóm
   participants: Types.ObjectId[];
-  group?: Types.ObjectId | null; // nếu là group chat
   lastMessage?: Types.ObjectId | null;
 }
 
@@ -16,9 +17,22 @@ const conversationSchema = new Schema<IConversationDocument>(
       enum: ["private", "group"],
       required: true,
     },
-    participants: [{ type: Schema.Types.ObjectId, ref: "User" }],
-    group: { type: Schema.Types.ObjectId, ref: "Group", default: null },
-    lastMessage: { type: Schema.Types.ObjectId, ref: "Message", default: null },
+    name: {
+      type: String,
+      default: null,
+    },
+    avatar: {
+      type: String,
+      default: null,
+    },
+    participants: [
+      { type: Schema.Types.ObjectId, ref: "User", required: true },
+    ],
+    lastMessage: {
+      type: Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -3,8 +3,10 @@ import ConversationController from "../app/controller/conversation.controller";
 
 const router = Router();
 
-router.get("/", async (req: Request, res: Response) => {
-  return ConversationController.getMySidebar(req, res);
-});
+router.get("/", ConversationController.getMySidebar);
+router.post("/group", ConversationController.createGroup);
+router.post("/group/:conversationId/members", ConversationController.addMembers);
+router.delete("/group/:conversationId/members/:userId", ConversationController.removeMember);
+router.get("/group/:conversationId/members", ConversationController.getGroupMembers);
 
 export default router;
