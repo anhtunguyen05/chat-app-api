@@ -35,7 +35,42 @@ export function initSocket(io: Server) {
       const onlineList = await redis.smembers("online_users");
       socket.emit("onlineList", onlineList);
 
+      // ✅ Kiểm tra và gửi các tin nhắn pending (nếu có)
+      const pending = await redis.lrange(`pending:${userId}`, 0, -1);
+
+      if (pending.length > 0) {
+        const messages = pending.map((msgStr) => JSON.parse(msgStr));
+
+        socket.emit("pendingMessages", messages);
+
+        // Xóa pending
+        await redis.del(`pending:${userId}`);
+      }
       console.log("✅ User online:", userId);
+    });
+
+    socket.on("joinConversation", async ({conversationId}) => {
+      socket.join(conversationId);
+      console.log(`👥 Socket ${socket.id} joined conversation ${conversationId}`);
+    });
+
+    socket.on("leaveConversation", (conversationId: string) => {
+      socket.leave(conversationId);
+    });
+
+    socket.on("typing", ({ senderId, conversationId }) => {
+      socket.to(conversationId).emit("typing", {
+        senderId,
+        conversationId,
+      });
+      console.log(`✏️ User ${senderId} is typing in conversation ${conversationId}`);
+    });
+
+    socket.on("stopTyping", ({ senderId, conversationId }) => {
+      socket.to(conversationId).emit("stopTyping", {
+        senderId,
+        conversationId,
+      });
     });
 
     // Đăng ký module message, notification, friend...
