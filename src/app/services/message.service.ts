@@ -71,11 +71,7 @@ class MessageService {
     );
   }
 
-  async getConversation(
-    conversationId: string,
-    page = "1",
-    limit = "20"
-  ) {
+  async getConversation(conversationId: string, page = "1", limit = "20") {
     const skip = (Number(page) - 1) * Number(limit);
 
     return Message.find({
@@ -87,10 +83,10 @@ class MessageService {
       .populate("sender receiver", "nickname avatarUrl");
   }
 
-  async getGroupConversation(groupId: string, page = "1", limit = "20") {
+  async getGroupConversation(conversationId: string, page = "1", limit = "20") {
     const skip = (Number(page) - 1) * Number(limit);
 
-    return Message.find({ group: groupId })
+    return Message.find({ conversation: conversationId })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit))

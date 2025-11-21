@@ -17,7 +17,7 @@ export function registerMessageSocket(io: Server, socket: Socket) {
         type = "text",
       } = data;
 
-      // 1. Lưu DB (kiểu mới)
+      // 1. Lưu DB
       const message = await messageService.saveMessageToDB({
         senderId,
         conversationId,
@@ -26,88 +26,44 @@ export function registerMessageSocket(io: Server, socket: Socket) {
         type,
       });
 
-      // 2. Lấy conversation để biết member nào cần nhận
-      const conversation = await Conversation.findById(conversationId)
-        .populate("participants.user", "id")
-        .lean();
+      // 2. Lấy danh sách participant
+      const conversation = await Conversation.findById(conversationId).lean();
 
       if (!conversation) {
         socket.emit("error", { message: "Conversation not found" });
         return;
       }
 
-      const members = conversation.participants.map((p: any) =>
-        p.toString()
-      );
+      const members = conversation.participants.map((id) => id.toString());
 
+      // 3. Lấy danh sách online từ Redis
       const onlineUsers = await redis.smembers("online_users");
 
-      // 3. Gửi message đến các thành viên (trừ sender)
+      // 4. Emit — Hybrid
       for (const memberId of members) {
         if (memberId === senderId) continue;
 
-        if (onlineUsers.includes(memberId)) {
+        const isOnline = onlineUsers.includes(memberId);
+
+        if (isOnline) {
+          // Emit theo userId
           io.to(memberId).emit("receiveMessage", message);
+
+          // Emit vào room nếu họ đang mở conversation
+          // io.to(conversationId).emit("receiveMessage", message);
         } else {
+          // Lưu vào pending tin nhắn
           await redis.lpush(`pending:${memberId}`, JSON.stringify(message));
         }
       }
 
-      // 4. Gửi lại cho người gửi
+      // 5. Trả kết quả lại cho sender
       socket.emit("messageSent", message);
     } catch (err) {
       console.error("❌ sendMessage error:", err);
       socket.emit("error", { message: "Failed to send message" });
     }
   });
-
-  // socket.on("sendGroupMessage", async (data) => {
-  //   try {
-  //     const { senderId, groupId, text, imageUrls = [], type = "text" } = data;
-
-  //     // ✅ 1. Lưu vào MongoDB
-  //     const message = await messageService.saveMessageToDB(
-  //       senderId,
-  //       null,
-  //       text,
-  //       imageUrls,
-  //       type,
-  //       groupId
-  //     );
-
-  //     // ✅ 2. Lấy danh sách thành viên nhóm từ DB
-  //     const group = await Group.findById(groupId).select("members").lean();
-
-  //     if (!group) {
-  //       socket.emit("error", { message: "Group not found" });
-  //       return;
-  //     }
-
-  //     const members = group.members.map((m) => m.toString());
-  //     const onlineUsers = await redis.smembers("online_users");
-
-  //     // ✅ 3. Gửi đến các thành viên
-  //     for (const memberId of members) {
-  //       if (memberId === senderId) continue;
-
-  //       if (onlineUsers.includes(memberId)) {
-  //         io.to(memberId).emit("receiveMessage", message);
-  //         console.log(`👥 Sent group message to online member ${memberId}`);
-  //       } else {
-  //         const pendingKey = `pending:${memberId}`;
-  //         await redis.lpush(pendingKey, JSON.stringify(message));
-  //         console.log(`💤 Member ${memberId} offline — saved group message`);
-  //       }
-  //     }
-
-  //     // ✅ 4. Gửi phản hồi lại cho người gửi
-  //     socket.emit("messageSent", message);
-  //     console.log(`📢 Group ${groupId} | ${senderId}: ${text}`);
-  //   } catch (err) {
-  //     console.error("❌ Error sending group message:", err);
-  //     socket.emit("error", { message: "Failed to send group message" });
-  //   }
-  // });
 
   socket.on("getPendingMessages", async (userId) => {
     try {
@@ -158,24 +114,5 @@ export function registerMessageSocket(io: Server, socket: Socket) {
     }
   });
 
-  socket.on("joinGroup", (groupId) => {
-    socket.join(groupId);
-    console.log(`👥 User ${socket.id} joined group room ${groupId}`);
-  });
-
-  socket.on("typing", ({ senderId, receiverId, groupId }) => {
-    if (groupId) {
-      socket.to(groupId).emit("typing", { senderId, groupId });
-    } else if (receiverId) {
-      io.to(receiverId).emit("typing", { senderId });
-    }
-  });
-
-  socket.on("stopTyping", ({ senderId, receiverId, groupId }) => {
-    if (groupId) {
-      socket.to(groupId).emit("stopTyping", { senderId, groupId });
-    } else if (receiverId) {
-      socket.to(receiverId).emit("stopTyping", { senderId });
-    }
-  });
+  
 }

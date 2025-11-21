@@ -114,10 +114,9 @@ class ConversationController {
         return res.status(400).json({ message: "conversationId is required" });
       }
       const members = await ConversationService.getGroupMembers(conversationId);
-      return res.status(200).json({
-        success: true,
-        data: members,
-      });
+      return res.status(200).json(
+        members
+      );
     } catch (err: any) {
       console.error("Error fetching group members:", err);
       return res.status(500).json({ message: err.message });
