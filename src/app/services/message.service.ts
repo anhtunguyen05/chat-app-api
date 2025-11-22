@@ -71,27 +71,17 @@ class MessageService {
     );
   }
 
-  async getConversation(conversationId: string, page = "1", limit = "20") {
-    const skip = (Number(page) - 1) * Number(limit);
+  async getMessages(conversationId: string, page = "1", limit = "20") {
+  const skip = (Number(page) - 1) * Number(limit);
 
-    return Message.find({
-      conversation: conversationId,
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit))
-      .populate("sender receiver", "nickname avatarUrl");
-  }
+  return Message.find({ conversation: conversationId })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(Number(limit))
+    .populate("sender", "nickname avatarUrl")
+    .populate("receiver", "nickname avatarUrl");
+}
 
-  async getGroupConversation(conversationId: string, page = "1", limit = "20") {
-    const skip = (Number(page) - 1) * Number(limit);
-
-    return Message.find({ conversation: conversationId })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit))
-      .populate("sender", "nickname avatarUrl");
-  }
 }
 
 export default new MessageService();
