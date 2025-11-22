@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import redis from "../../config/redis.config";
 import messageService from "../services/message.service";
 import uploadService from "../services/upload.service";
 
@@ -6,43 +7,25 @@ class MessageController {
   async getConversation(req: Request, res: Response) {
     try {
       const userId = req.id;
-      const { type, targetId } = req.params;
+      const { conversationId } = req.params;
       const { page = "1", limit = "20" } = req.query;
 
       if (!userId) {
         return res.status(401).json({ message: "Chưa đăng nhập" });
       }
 
-      if (!targetId || !type) {
+      if (!conversationId) {
         return res.status(400).json({ message: "Thiếu tham số" });
       }
 
       let messages;
+      messages = await messageService.getMessages(
+        conversationId,
+        page as string,
+        limit as string
+      );
 
-      switch (type) {
-        case "group":
-          messages = await messageService.getGroupConversation(
-            targetId,
-            page as string,
-            limit as string
-          );
-          break;
-
-        case "private":
-          messages = await messageService.getConversation(
-            targetId,
-            page as string,
-            limit as string
-          );
-          break;
-
-        default:
-          return res
-            .status(400)
-            .json({ message: "Loại hội thoại không hợp lệ" });
-      }
-
-      res.status(200).json(messages.reverse());
+      return res.json(messages.reverse());
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: "Lỗi server", error: err });
@@ -63,6 +46,18 @@ class MessageController {
     } catch (err) {
       res.status(500).json({ message: "Image upload failed", error: err });
     }
+  }
+
+  async getPendingMessages(req: Request, res: Response) {
+    const userId = req.id;
+
+    const raw = await redis.lrange(`pending:${userId}`, 0, -1);
+    const messages = raw.map((item: string) => JSON.parse(item));
+
+    // Clear ngay sau khi gửi pending
+    await redis.del(`pending:${userId}`);
+
+    return res.json({ messages });
   }
 }
 

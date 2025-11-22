@@ -4,7 +4,8 @@ import { upload } from "../app/middleware/upload.middleware";
 
 const router = Router();
 
-router.get("/:type/:targetId", MessageController.getConversation);
+router.get("/pending-messages", MessageController.getPendingMessages);
+router.get("/:conversationId", MessageController.getConversation);
 router.post(
   "/upload-images",
   upload.array("images"),
