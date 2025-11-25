@@ -49,10 +49,11 @@ class ConversationService {
         avatar = conv.avatar || "/default-group-avatar.png";
       }
 
-      const isLastMessageRead =
-        cp.lastSeenMessage &&
-        conv.lastMessage &&
-        cp.lastSeenMessage.toString() === conv.lastMessage._id.toString();
+      let isLastMessageRead = false;
+      if (conv.lastMessage && cp.lastSeenMessage) {
+        isLastMessageRead =
+          cp.lastSeenMessage.toString() === conv.lastMessage._id.toString();
+      }
 
       result.push({
         id: conv._id,
@@ -67,6 +68,7 @@ class ConversationService {
       });
     }
 
+    // Sort theo thời gian last message
     result.sort(
       (a, b) =>
         new Date(b.lastMessageAt || 0).getTime() -
@@ -74,6 +76,23 @@ class ConversationService {
     );
 
     return result;
+  }
+
+  async getConversationParticipants(conversationId: string) {
+    const participants = await ConversationParticipant.find({
+      conversation: conversationId,
+    })
+      .populate("user", "nickname avatarUrl") // lấy user info
+      .lean();
+
+    // Chuẩn hóa format trả về cho FE
+    return participants.map((p: any) => ({
+      id: p.user._id.toString(),
+      nickname: p.user.nickname,
+      avatarUrl: p.user.avatarUrl,
+      role: p.role,
+      lastSeenMessageId: p.lastSeenMessage ? p.lastSeenMessage.toString() : null,
+    }));
   }
 
   async createGroupChat(data: CreateGroupDTO) {

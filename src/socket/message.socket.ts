@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import { Message } from "../app/models/message.model";
 import { Group } from "../app/models/group.model";
 import { Conversation } from "../app/models/conversation.model";
+import { ConversationParticipant } from "../app/models/conversationParticipant.model";
 import messageService from "../app/services/message.service";
 import uploadService from "../app/services/upload.service";
 import redis from "../config/redis.config";
@@ -85,34 +86,35 @@ export function registerMessageSocket(io: Server, socket: Socket) {
 
   socket.on("markAsRead", async (data) => {
     try {
-      const { userId, chatId, isGroup } = data;
+      const { userId, conversationId } = data;
 
-      const redisKey = isGroup
-        ? `read_status:group:${chatId}`
-        : `read_status:user:${chatId}`;
+      // 1️⃣ Lấy last message của conversation
+      const lastMessage = await Message.findOne({
+        conversation: conversationId,
+      })
+        .sort({ createdAt: -1 })
+        .select("_id");
 
-      // ✅ 1. Lưu trạng thái "đã đọc" vào Redis
-      // -> Giúp những user khác thấy ngay mà không cần query DB
-      await redis.hset(redisKey, userId, Date.now());
+      if (!lastMessage) return;
 
-      // ✅ 2. Gửi sự kiện "đã đọc" cho toàn bộ user trong phòng
-      io.to(chatId).emit("messageRead", { chatId, userId });
-
-      // ✅ 3. (Tùy chọn) batch update DB định kỳ
-      // -> Giúp giảm tần suất ghi DB
-      await redis.lpush(
-        "read_updates_queue",
-        JSON.stringify({ userId, chatId, isGroup })
+      // 2️⃣ Cập nhật ConversationParticipant.lastSeenMessage
+      await ConversationParticipant.updateOne(
+        { user: userId, conversation: conversationId },
+        { lastSeenMessage: lastMessage._id }
       );
-      if (isGroup) await messageService.markGroupMessagesAsRead(userId, chatId);
-      else await messageService.markMessagesAsRead(userId, chatId);
+
+      // 3️⃣ Gửi realtime cho toàn bộ user trong room conversationId
+      io.to(conversationId).emit("messageRead", {
+        conversationId,
+        userId,
+        lastSeenMessage: lastMessage._id,
+      });
+
       console.log(
-        `👀 ${isGroup ? "Group" : "Chat"} ${chatId}: ${userId} marked as read`
+        `👁️ User ${userId} marked conversation ${conversationId} as read`
       );
     } catch (err) {
-      console.error("❌ Error marking messages as read:", err);
+      console.error("❌ Error markAsRead:", err);
     }
   });
-
-  
 }
