@@ -49,39 +49,42 @@ class MessageService {
     return message.populate("sender", "nickname avatarUrl");
   }
 
-  async markMessagesAsRead(userId: string, conversationId: string) {
-    await Message.updateMany(
-      {
-        receiver: userId,
-        sender: conversationId,
-        isRead: false,
-      },
-      { isRead: true }
+  async markAsRead(userId: string, conversationId: string) {
+    const lastMessage = await Message.findOne({
+      conversation: conversationId,
+    }).sort({ createdAt: -1 });
+
+    if (!lastMessage) return;
+
+    await ConversationParticipant.updateOne(
+      { user: userId, conversation: conversationId },
+      { lastSeenMessage: lastMessage._id }
     );
   }
 
-  async markGroupMessagesAsRead(userId: string, groupId: string) {
-    await Message.updateMany(
-      {
-        group: groupId,
-        isRead: false,
-        readBy: { $ne: userId },
-      },
-      { $push: { readBy: userId } }
+  async markGroupAsRead(userId: string, conversationId: string) {
+    const lastMessage = await Message.findOne({
+      conversation: conversationId,
+    }).sort({ createdAt: -1 });
+
+    if (!lastMessage) return;
+
+    await ConversationParticipant.updateOne(
+      { user: userId, conversation: conversationId },
+      { lastSeenMessage: lastMessage._id }
     );
   }
 
   async getMessages(conversationId: string, page = "1", limit = "20") {
-  const skip = (Number(page) - 1) * Number(limit);
+    const skip = (Number(page) - 1) * Number(limit);
 
-  return Message.find({ conversation: conversationId })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(Number(limit))
-    .populate("sender", "nickname avatarUrl")
-    .populate("receiver", "nickname avatarUrl");
-}
-
+    return Message.find({ conversation: conversationId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .populate("sender", "nickname avatarUrl")
+      .populate("receiver", "nickname avatarUrl");
+  }
 }
 
 export default new MessageService();

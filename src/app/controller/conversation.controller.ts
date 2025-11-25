@@ -24,6 +24,23 @@ class ConversationController {
     }
   }
 
+  async getConversationParticipants(req: Request, res: Response) {
+    try {
+      const { conversationId } = req.params;
+      if (!conversationId) {
+        return res
+          .status(400)
+          .json({ message: "conversationId parameter is required" });
+      }
+      const participants =
+        await ConversationService.getConversationParticipants(conversationId);
+      return res.status(200).json(participants);
+    } catch (err: any) {
+      console.error("Error fetching conversation participants:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  }
+
   async createGroup(req: Request, res: Response) {
     try {
       const { name, avatar, memberIds } = req.body;
@@ -114,9 +131,7 @@ class ConversationController {
         return res.status(400).json({ message: "conversationId is required" });
       }
       const members = await ConversationService.getGroupMembers(conversationId);
-      return res.status(200).json(
-        members
-      );
+      return res.status(200).json(members);
     } catch (err: any) {
       console.error("Error fetching group members:", err);
       return res.status(500).json({ message: err.message });
