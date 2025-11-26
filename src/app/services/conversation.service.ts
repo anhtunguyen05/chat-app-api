@@ -91,7 +91,9 @@ class ConversationService {
       nickname: p.user.nickname,
       avatarUrl: p.user.avatarUrl,
       role: p.role,
-      lastSeenMessageId: p.lastSeenMessage ? p.lastSeenMessage.toString() : null,
+      lastSeenMessageId: p.lastSeenMessage
+        ? p.lastSeenMessage.toString()
+        : null,
     }));
   }
 
@@ -126,19 +128,24 @@ class ConversationService {
 
   async addMembersToGroup(conversationId: string, userIds: string[]) {
     const conv = await Conversation.findById(conversationId);
-
     if (!conv) throw new Error("Conversation not found");
     if (conv.type !== "group") throw new Error("Not a group chat");
 
-    const newMembers = userIds.map((id) => new Types.ObjectId(id));
+    // Chỉ thêm, không merge
+    for (const userId of userIds) {
+      const idObj = new Types.ObjectId(userId);
 
-    // Gộp members + remove duplicates
-    const unique = new Set([
-      ...conv.participants.map((p) => p.toString()),
-      ...newMembers.map((p) => p.toString()),
-    ]);
+      if (!conv.participants.some((p) => p.toString() === userId)) {
+        conv.participants.push(idObj);
 
-    conv.participants = Array.from(unique).map((id) => new Types.ObjectId(id));
+        // tạo ConversationParticipant mới
+        await ConversationParticipant.create({
+          user: idObj,
+          conversation: conversationId,
+          lastSeenMessage: null,
+        });
+      }
+    }
 
     await conv.save();
 
@@ -154,11 +161,17 @@ class ConversationService {
     if (!conv) throw new Error("Conversation not found");
     if (conv.type !== "group") throw new Error("Not a group chat");
 
+    // 1. Xoá khỏi danh sách participants
     conv.participants = conv.participants.filter(
       (p) => p.toString() !== userId
     );
-
     await conv.save();
+
+    // 2. Xóa luôn ConversationParticipant
+    await ConversationParticipant.deleteOne({
+      conversation: conversationId,
+      user: userId,
+    });
 
     return Conversation.findById(conversationId).populate(
       "participants",
