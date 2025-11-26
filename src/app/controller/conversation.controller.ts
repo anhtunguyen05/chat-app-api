@@ -100,7 +100,7 @@ class ConversationController {
   async removeMember(req: Request, res: Response) {
     try {
       const { conversationId } = req.params;
-      const { userId } = req.body;
+      const { userId } = req.params;
 
       if (!conversationId) {
         return res.status(400).json({ message: "conversationId is required" });
