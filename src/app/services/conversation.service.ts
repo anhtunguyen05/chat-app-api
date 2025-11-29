@@ -29,6 +29,7 @@ class ConversationService {
       if (!conv) continue;
 
       let displayName = "";
+      let slug = "";
       let avatar = "";
       let isOnline = false;
       let lastActiveAt = null;
@@ -36,9 +37,10 @@ class ConversationService {
       if (conv.type === "private") {
         const otherUser = await User.findOne({
           _id: { $in: conv.participants, $ne: userId },
-        }).select("nickname avatarUrl online lastSeen");
+        }).select("nickname slug avatarUrl online lastSeen");
 
         displayName = otherUser?.nickname || "Unknown";
+        slug = otherUser?.slug || "";
         avatar = otherUser?.avatarUrl || "";
         isOnline = otherUser?.online || false;
         lastActiveAt = otherUser?.lastSeen || null;
@@ -59,6 +61,7 @@ class ConversationService {
         id: conv._id,
         type: conv.type,
         name: displayName,
+        slug: slug,
         avatar,
         lastMessage: conv.lastMessage?.text || null,
         lastMessageAt: conv.lastMessage?.createdAt || null,
@@ -82,13 +85,14 @@ class ConversationService {
     const participants = await ConversationParticipant.find({
       conversation: conversationId,
     })
-      .populate("user", "nickname avatarUrl") // lấy user info
+      .populate("user", "nickname slug avatarUrl") // lấy user info
       .lean();
 
     // Chuẩn hóa format trả về cho FE
     return participants.map((p: any) => ({
       id: p.user._id.toString(),
       nickname: p.user.nickname,
+      slug: p.user.slug,
       avatarUrl: p.user.avatarUrl,
       role: p.role,
       lastSeenMessageId: p.lastSeenMessage
