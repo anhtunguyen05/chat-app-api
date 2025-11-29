@@ -14,11 +14,15 @@ export function initSocket(io: Server) {
   io.on("connection", (socket: Socket) => {
     console.log("🟢 User connected:", socket.id);
 
-    // Khi user join phòng riêng của họ
-    socket.on("join", async (data) => {
-      const { userId } = data;
-      if (!userId) return;
+    // ✅ Lấy userId từ socket.data (đã verify trong middleware)
+    const userId = socket.data.userId;
+    if (!userId) {
+      socket.disconnect();
+      return;
+    }
 
+    // Khi user join phòng riêng của họ
+    socket.on("join", async () => {
       socket.join(userId);
       console.log(`👤 User ${userId} joined their private room`);
 
@@ -50,25 +54,26 @@ export function initSocket(io: Server) {
     });
 
     socket.on("joinConversation", async ({conversationId}) => {
+      // TODO: Verify user có quyền join conversation này không
       socket.join(conversationId);
-      console.log(`👥 Socket ${socket.id} joined conversation ${conversationId}`);
+      console.log(`👥 User ${userId} joined conversation ${conversationId}`);
     });
 
     socket.on("leaveConversation", (conversationId: string) => {
       socket.leave(conversationId);
     });
 
-    socket.on("typing", ({ senderId, conversationId }) => {
+    socket.on("typing", ({ conversationId }) => {
       socket.to(conversationId).emit("typing", {
-        senderId,
+        senderId: userId,
         conversationId,
       });
-      console.log(`✏️ User ${senderId} is typing in conversation ${conversationId}`);
+      console.log(`✏️ User ${userId} is typing in conversation ${conversationId}`);
     });
 
-    socket.on("stopTyping", ({ senderId, conversationId }) => {
+    socket.on("stopTyping", ({ conversationId }) => {
       socket.to(conversationId).emit("stopTyping", {
-        senderId,
+        senderId: userId,
         conversationId,
       });
     });
@@ -81,10 +86,6 @@ export function initSocket(io: Server) {
       console.log("🔴 User disconnected:", socket.id);
 
       try {
-        // Lấy userId từ socketId
-        const userId = await redis.get(`socket:${socket.id}`);
-        if (!userId) return;
-
         // Xoá socket mapping
         await redis.del(`socket:${socket.id}`);
 
