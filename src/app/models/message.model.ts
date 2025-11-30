@@ -8,10 +8,19 @@ export interface IMessage {
 
   text: string;
   imageUrls?: string[];
-  type: "text" | "sticker" | "image" | "video" | "mixed";
+  type: "text" | "sticker" | "image" | "video" | "mixed" | "call";
 
   isRead: boolean; // cho chat 1-1
   readBy: Types.ObjectId[]; // danh sách đã đọc (group)
+
+  // Call metadata (chỉ dùng khi type = "call")
+  callData?: {
+    callType: "voice" | "video";
+    status: "missed" | "rejected" | "completed" | "cancelled";
+    duration?: number; // seconds
+    startedAt?: Date;
+    endedAt?: Date;
+  };
 
   createdAt: Date;
 }
@@ -34,8 +43,20 @@ const messageSchema = new Schema<IMessageDocument>(
 
     type: {
       type: String,
-      enum: ["text", "sticker", "image", "video", "mixed"],
+      enum: ["text", "sticker", "image", "video", "mixed", "call"],
       default: "text",
+    },
+
+    // Call metadata
+    callData: {
+      callType: { type: String, enum: ["voice", "video"] },
+      status: {
+        type: String,
+        enum: ["missed", "rejected", "completed", "cancelled"],
+      },
+      duration: { type: Number },
+      startedAt: { type: Date },
+      endedAt: { type: Date },
     },
 
     isRead: { type: Boolean, default: false },

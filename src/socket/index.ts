@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { registerMessageSocket } from "./message.socket";
+import { registerCallSocket } from "./call.socket";
 import { User } from "../app/models/user.model";
 import redis from "../config/redis.config";
 
@@ -80,6 +81,7 @@ export function initSocket(io: Server) {
 
     // Đăng ký module message, notification, friend...
     registerMessageSocket(io, socket);
+    registerCallSocket(io, socket);
 
     // Khi user disconnect
     socket.on("disconnect", async () => {
