@@ -1,9 +1,10 @@
 import { Schema, model, Document, Types } from "mongoose";
+import { ParticipantRole } from "../../enums/message.enum";
 
 export interface IConversationParticipant {
   conversation: Types.ObjectId;
   user: Types.ObjectId;
-  role: "member" | "admin";
+  role: ParticipantRole;
   lastSeenMessage?: Types.ObjectId | null;
 }
 
@@ -24,7 +25,11 @@ const conversationParticipantSchema =
         ref: "User",
         required: true,
       },
-      role: { type: String, enum: ["member", "admin"], default: "member" },
+      role: { 
+        type: String, 
+        enum: Object.values(ParticipantRole), 
+        default: ParticipantRole.MEMBER 
+      },
       lastSeenMessage: {
         type: Schema.Types.ObjectId,
         ref: "Message",

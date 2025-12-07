@@ -3,6 +3,11 @@ import { User } from "../models/user.model";
 import { Conversation } from "../models/conversation.model";
 import { ConversationParticipant } from "../models/conversationParticipant.model";
 import { FriendRequest } from "../models/friendRequest.model";
+import { 
+  ConversationType, 
+  ParticipantRole, 
+  FriendRequestStatus 
+} from "../../enums/message.enum";
 
 class FriendService {
   async sendFriendRequest(fromId: string, toId: string) {
@@ -25,24 +30,24 @@ class FriendService {
   const request = await FriendRequest.findOne({
     from: fromId,
     to: toId,
-    status: "pending",
+    status: FriendRequestStatus.PENDING,
   });
   if (!request) throw new Error("Không tìm thấy yêu cầu kết bạn");
 
   // 1. Cập nhật trạng thái
-  request.status = "accepted";
+  request.status = FriendRequestStatus.ACCEPTED;
   await request.save();
 
   // 2. Kiểm tra xem conversation 1-1 đã tồn tại chưa
   let conversation = await Conversation.findOne({
-    type: "private",
+    type: ConversationType.PRIVATE,
     participants: { $all: [fromId, toId] },
   });
 
   // 3. Nếu chưa tồn tại → tạo mới conversation
   if (!conversation) {
     conversation = await Conversation.create({
-      type: "private",
+      type: ConversationType.PRIVATE,
       participants: [fromId, toId],
     });
 
@@ -51,12 +56,12 @@ class FriendService {
       {
         conversation: conversation._id,
         user: fromId,
-        role: "member",
+        role: ParticipantRole.MEMBER,
       },
       {
         conversation: conversation._id,
         user: toId,
-        role: "member",
+        role: ParticipantRole.MEMBER,
       },
     ]);
   }
@@ -73,11 +78,11 @@ class FriendService {
     const request = await FriendRequest.findOne({
       from: fromId,
       to: toId,
-      status: "pending",
+      status: FriendRequestStatus.PENDING,
     });
     if (!request) throw new Error("Không tìm thấy yêu cầu kết bạn để từ chối");
 
-    request.status = "rejected";
+    request.status = FriendRequestStatus.REJECTED;
     await request.save();
     return request;
   }
@@ -86,7 +91,7 @@ class FriendService {
     const request = await FriendRequest.findOneAndDelete({
       from: fromId,
       to: toId,
-      status: "pending",
+      status: FriendRequestStatus.PENDING,
     });
     if (!request) throw new Error("Không tìm thấy yêu cầu kết bạn để từ chối");
 
@@ -97,8 +102,8 @@ class FriendService {
   async unfriend(userId1: string, userId2: string) {
     const friendship = await FriendRequest.findOneAndDelete({
       $or: [
-        { from: userId1, to: userId2, status: "accepted" },
-        { from: userId2, to: userId1, status: "accepted" },
+        { from: userId1, to: userId2, status: FriendRequestStatus.ACCEPTED },
+        { from: userId2, to: userId1, status: FriendRequestStatus.ACCEPTED },
       ],
     });
 
@@ -109,7 +114,7 @@ class FriendService {
   async getFriendList(userId: string) {
     const friends = await FriendRequest.find({
       $or: [{ from: userId }, { to: userId }],
-      status: "accepted",
+      status: FriendRequestStatus.ACCEPTED,
     }).populate("from to", "nickname avatarUrl slug lastSeen");
 
     return friends.map((req) =>
@@ -142,7 +147,7 @@ class FriendService {
   async getFriendRequestList(userId: string) {
     const friends = await FriendRequest.find({
       $or: [{ to: userId }],
-      status: "pending",
+      status: FriendRequestStatus.PENDING,
     }).populate("from to", "nickname slug avatarUrl");
 
     return friends.map((req) =>
@@ -159,8 +164,8 @@ class FriendService {
     });
 
     if (!friendship) return "none";
-    if (friendship.status === "accepted") return "friends";
-    if (friendship.status === "pending") {
+    if (friendship.status === FriendRequestStatus.ACCEPTED) return "friends";
+    if (friendship.status === FriendRequestStatus.PENDING) {
       return friendship.from.toString() === currentUserId
         ? "pending_sent"
         : "pending_received";

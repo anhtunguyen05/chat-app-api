@@ -3,6 +3,11 @@ import { registerMessageSocket } from "./message.socket";
 import { registerCallSocket } from "./call.socket";
 import { User } from "../app/models/user.model";
 import redis from "../config/redis.config";
+import {
+  UserSocketEvent,
+  ConversationSocketEvent,
+  CommonSocketEvent,
+} from "../enums/socket.enum";
 
 let ioInstance: Server;
 
@@ -12,7 +17,7 @@ let ioInstance: Server;
 export function initSocket(io: Server) {
   ioInstance = io;
 
-  io.on("connection", (socket: Socket) => {
+  io.on(CommonSocketEvent.CONNECTION, (socket: Socket) => {
     console.log("🟢 User connected:", socket.id);
 
     // ✅ Lấy userId từ socket.data (đã verify trong middleware)
@@ -23,7 +28,7 @@ export function initSocket(io: Server) {
     }
 
     // Khi user join phòng riêng của họ
-    socket.on("join", async () => {
+    socket.on(UserSocketEvent.JOIN, async () => {
       socket.join(userId);
       console.log(`👤 User ${userId} joined their private room`);
 
@@ -34,11 +39,11 @@ export function initSocket(io: Server) {
       await redis.set(`socket:${socket.id}`, userId);
 
       // ✅ Thông báo cho toàn bộ client khác biết user này online
-      socket.broadcast.emit("userStatus", { userId, isOnline: true });
+      socket.broadcast.emit(UserSocketEvent.USER_STATUS, { userId, isOnline: true });
 
       // ✅ Gửi danh sách user đang online từ Redis về client
       const onlineList = await redis.smembers("online_users");
-      socket.emit("onlineList", onlineList);
+      socket.emit(UserSocketEvent.ONLINE_LIST, onlineList);
 
       // ✅ Kiểm tra và gửi các tin nhắn pending (nếu có)
       const pending = await redis.lrange(`pending:${userId}`, 0, -1);
@@ -54,26 +59,26 @@ export function initSocket(io: Server) {
       console.log("✅ User online:", userId);
     });
 
-    socket.on("joinConversation", async ({conversationId}) => {
+    socket.on(ConversationSocketEvent.JOIN_CONVERSATION, async ({conversationId}) => {
       // TODO: Verify user có quyền join conversation này không
       socket.join(conversationId);
       console.log(`👥 User ${userId} joined conversation ${conversationId}`);
     });
 
-    socket.on("leaveConversation", (conversationId: string) => {
+    socket.on(ConversationSocketEvent.LEAVE_CONVERSATION, (conversationId: string) => {
       socket.leave(conversationId);
     });
 
-    socket.on("typing", ({ conversationId }) => {
-      socket.to(conversationId).emit("typing", {
+    socket.on(ConversationSocketEvent.TYPING, ({ conversationId }) => {
+      socket.to(conversationId).emit(ConversationSocketEvent.TYPING, {
         senderId: userId,
         conversationId,
       });
       console.log(`✏️ User ${userId} is typing in conversation ${conversationId}`);
     });
 
-    socket.on("stopTyping", ({ conversationId }) => {
-      socket.to(conversationId).emit("stopTyping", {
+    socket.on(ConversationSocketEvent.STOP_TYPING, ({ conversationId }) => {
+      socket.to(conversationId).emit(ConversationSocketEvent.STOP_TYPING, {
         senderId: userId,
         conversationId,
       });
@@ -84,7 +89,7 @@ export function initSocket(io: Server) {
     registerCallSocket(io, socket);
 
     // Khi user disconnect
-    socket.on("disconnect", async () => {
+    socket.on(CommonSocketEvent.DISCONNECT, async () => {
       console.log("🔴 User disconnected:", socket.id);
 
       try {
@@ -100,7 +105,7 @@ export function initSocket(io: Server) {
         await User.findByIdAndUpdate(userId, { lastSeen });
 
         // Gửi event cho toàn bộ client
-        io.emit("userStatus", {
+        io.emit(UserSocketEvent.USER_STATUS, {
           userId,
           isOnline: false,
           lastSeen,

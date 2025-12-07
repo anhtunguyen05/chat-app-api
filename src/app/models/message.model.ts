@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types } from "mongoose";
+import { MessageType, CallType, CallStatus } from "../../enums/message.enum";
 
 export interface IMessage {
   sender: Types.ObjectId;
@@ -8,15 +9,15 @@ export interface IMessage {
 
   text: string;
   imageUrls?: string[];
-  type: "text" | "sticker" | "image" | "video" | "mixed" | "call";
+  type: MessageType;
 
   isRead: boolean; // cho chat 1-1
   readBy: Types.ObjectId[]; // danh sách đã đọc (group)
 
   // Call metadata (chỉ dùng khi type = "call")
   callData?: {
-    callType: "voice" | "video";
-    status: "missed" | "rejected" | "completed" | "cancelled";
+    callType: CallType;
+    status: CallStatus;
     duration?: number; // seconds
     startedAt?: Date;
     endedAt?: Date;
@@ -43,16 +44,16 @@ const messageSchema = new Schema<IMessageDocument>(
 
     type: {
       type: String,
-      enum: ["text", "sticker", "image", "video", "mixed", "call"],
-      default: "text",
+      enum: Object.values(MessageType),
+      default: MessageType.TEXT,
     },
 
     // Call metadata
     callData: {
-      callType: { type: String, enum: ["voice", "video"] },
+      callType: { type: String, enum: Object.values(CallType) },
       status: {
         type: String,
-        enum: ["missed", "rejected", "completed", "cancelled"],
+        enum: Object.values(CallStatus),
       },
       duration: { type: Number },
       startedAt: { type: Date },

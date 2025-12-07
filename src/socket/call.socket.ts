@@ -1,11 +1,13 @@
 import { Server, Socket } from "socket.io";
 import MessageService from "../app/services/message.service";
+import { CallType, CallStatus } from "../enums/message.enum";
+import { CallSocketEvent, MessageSocketEvent } from "../enums/socket.enum";
 
 // Map để track cuộc gọi đang diễn ra
 const activeCalls = new Map<string, {
   caller: string;
   receiver: string;
-  callType: "voice" | "video";
+  callType: CallType;
   startedAt: Date;
 }>();
 
@@ -13,7 +15,7 @@ export function registerCallSocket(io: Server, socket: Socket) {
   const userId = socket.data.userId;
 
   // Bắt đầu cuộc gọi
-  socket.on("call:initiate", ({ to, conversationId, callType, offer }) => {
+  socket.on(CallSocketEvent.INITIATE, ({ to, conversationId, callType, offer }) => {
     console.log(`📞 User ${userId} is calling ${to} (${callType})`);
     
     // Lưu thông tin cuộc gọi
@@ -26,7 +28,7 @@ export function registerCallSocket(io: Server, socket: Socket) {
     });
     
     // Gửi thông báo cuộc gọi đến người nhận
-    io.to(to).emit("call:incoming", {
+    io.to(to).emit(CallSocketEvent.INCOMING, {
       from: userId,
       conversationId,
       callType,
@@ -36,7 +38,7 @@ export function registerCallSocket(io: Server, socket: Socket) {
   });
 
   // Chấp nhận cuộc gọi
-  socket.on("call:accept", async ({ to, conversationId, answer }) => {
+  socket.on(CallSocketEvent.ACCEPT, async ({ to, conversationId, answer }) => {
     console.log(`✅ User ${userId} accepted call from ${to}`);
     
     const callId = `${to}-${userId}`;
@@ -48,14 +50,14 @@ export function registerCallSocket(io: Server, socket: Socket) {
       activeCalls.set(callId, callInfo);
     }
     
-    io.to(to).emit("call:accepted", {
+    io.to(to).emit(CallSocketEvent.ACCEPTED, {
       from: userId,
       answer,
     });
   });
 
   // Từ chối cuộc gọi
-  socket.on("call:reject", async ({ to, conversationId, reason }) => {
+  socket.on(CallSocketEvent.REJECT, async ({ to, conversationId, reason }) => {
     console.log(`❌ User ${userId} rejected call from ${to}`);
     
     const callId = `${to}-${userId}`;
@@ -63,32 +65,30 @@ export function registerCallSocket(io: Server, socket: Socket) {
     
     // Lưu message rejected
     if (callInfo && conversationId) {
-      await MessageService.saveCallMessage({
+      const message = await MessageService.saveCallMessage({
         senderId: to,
         receiverId: userId,
         conversationId,
         callType: callInfo.callType,
-        status: "rejected",
+        status: CallStatus.REJECTED,
         startedAt: callInfo.startedAt,
       });
       
-      // Emit để cập nhật UI
-      io.to(conversationId).emit("message:new", {
-        conversationId,
-        type: "call",
-      });
+      // Emit message giống như sendMessage
+      io.to(to).emit(MessageSocketEvent.RECEIVE_MESSAGE, message); // người gọi nhận
+      io.to(userId).emit(MessageSocketEvent.MESSAGE_SENT, message); // người từ chối nhận
     }
     
     activeCalls.delete(callId);
     
-    io.to(to).emit("call:rejected", {
+    io.to(to).emit(CallSocketEvent.REJECTED, {
       from: userId,
       reason: reason || "busy",
     });
   });
 
   // Kết thúc cuộc gọi
-  socket.on("call:end", async ({ to, conversationId }) => {
+  socket.on(CallSocketEvent.END, async ({ to, conversationId }) => {
     console.log(`📵 User ${userId} ended call with ${to}`);
     
     const callId1 = `${userId}-${to}`;
@@ -100,91 +100,91 @@ export function registerCallSocket(io: Server, socket: Socket) {
       const duration = Math.floor((endedAt.getTime() - callInfo.startedAt.getTime()) / 1000);
       
       // Lưu message completed
-      await MessageService.saveCallMessage({
+      const message = await MessageService.saveCallMessage({
         senderId: callInfo.caller,
         receiverId: callInfo.receiver,
         conversationId,
         callType: callInfo.callType,
-        status: "completed",
+        status: CallStatus.COMPLETED,
         duration,
         startedAt: callInfo.startedAt,
         endedAt,
       });
       
-      // Emit để cập nhật UI
-      io.to(conversationId).emit("message:new", {
-        conversationId,
-        type: "call",
-      });
+      // Emit message cho cả 2 người
+      io.to(callInfo.caller).emit(MessageSocketEvent.MESSAGE_SENT, message);
+      io.to(callInfo.receiver).emit(MessageSocketEvent.RECEIVE_MESSAGE, message);
+      
+      // Emit messageSent cho người kết thúc
+      // socket.emit(MessageSocketEvent.MESSAGE_SENT, message);
     }
     
     activeCalls.delete(callId1);
     activeCalls.delete(callId2);
     
-    io.to(to).emit("call:ended", {
+    io.to(to).emit(CallSocketEvent.ENDED, {
       from: userId,
     });
   });
 
   // ICE Candidates (để thiết lập kết nối P2P)
-  socket.on("call:ice-candidate", ({ to, candidate }) => {
-    io.to(to).emit("call:ice-candidate", {
+  socket.on(CallSocketEvent.ICE_CANDIDATE, ({ to, candidate }) => {
+    io.to(to).emit(CallSocketEvent.ICE_CANDIDATE, {
       from: userId,
       candidate,
     });
   });
 
   // Missed call (khi không trả lời)
-  socket.on("call:missed", async ({ to, conversationId, callType }) => {
+  socket.on(CallSocketEvent.MISSED, async ({ to, conversationId, callType }) => {
     console.log(`📞❌ Missed call from ${userId} to ${to}`);
     
     const callId = `${userId}-${to}`;
     const callInfo = activeCalls.get(callId);
     
     if (conversationId) {
-      await MessageService.saveCallMessage({
+      const message = await MessageService.saveCallMessage({
         senderId: userId,
         receiverId: to,
         conversationId,
-        callType: callType || callInfo?.callType || "voice",
-        status: "missed",
+        callType: callType || callInfo?.callType || CallType.VOICE,
+        status: CallStatus.MISSED,
         startedAt: callInfo?.startedAt || new Date(),
       });
       
-      io.to(conversationId).emit("message:new", {
-        conversationId,
-        type: "call",
-      });
+      // Emit message cho cả 2 người
+      io.to(userId).emit(MessageSocketEvent.MESSAGE_SENT, message); // người gọi
+      io.to(to).emit(MessageSocketEvent.RECEIVE_MESSAGE, message); // người bị nhỡ
     }
     
     activeCalls.delete(callId);
   });
 
   // Toggle camera/mic
-  socket.on("call:toggle-video", ({ to, enabled }) => {
-    io.to(to).emit("call:video-toggled", {
+  socket.on(CallSocketEvent.TOGGLE_VIDEO, ({ to, enabled }) => {
+    io.to(to).emit(CallSocketEvent.VIDEO_TOGGLED, {
       from: userId,
       enabled,
     });
   });
 
-  socket.on("call:toggle-audio", ({ to, enabled }) => {
-    io.to(to).emit("call:audio-toggled", {
+  socket.on(CallSocketEvent.TOGGLE_AUDIO, ({ to, enabled }) => {
+    io.to(to).emit(CallSocketEvent.AUDIO_TOGGLED, {
       from: userId,
       enabled,
     });
   });
 
   // Chuyển từ voice sang video call
-  socket.on("call:upgrade-to-video", ({ to, offer }) => {
-    io.to(to).emit("call:upgrade-request", {
+  socket.on(CallSocketEvent.UPGRADE_TO_VIDEO, ({ to, offer }) => {
+    io.to(to).emit(CallSocketEvent.UPGRADE_REQUEST, {
       from: userId,
       offer,
     });
   });
 
-  socket.on("call:upgrade-accept", ({ to, answer }) => {
-    io.to(to).emit("call:upgrade-accepted", {
+  socket.on(CallSocketEvent.UPGRADE_ACCEPT, ({ to, answer }) => {
+    io.to(to).emit(CallSocketEvent.UPGRADE_ACCEPTED, {
       from: userId,
       answer,
     });
