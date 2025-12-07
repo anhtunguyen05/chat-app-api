@@ -4,6 +4,7 @@ import { ConversationParticipant } from "../models/conversationParticipant.model
 import { Message } from "../models/message.model";
 import { Group } from "../models/group.model";
 import uploadService from "./upload.service";
+import { MessageType, CallType, CallStatus } from "../../enums/message.enum";
 
 class MessageService {
   async saveMessageToDB({
@@ -99,8 +100,8 @@ class MessageService {
     senderId: string;
     receiverId: string;
     conversationId: string;
-    callType: "voice" | "video";
-    status: "missed" | "rejected" | "completed" | "cancelled";
+    callType: CallType;
+    status: CallStatus;
     duration?: number;
     startedAt?: Date;
     endedAt?: Date;
@@ -112,17 +113,17 @@ class MessageService {
 
     // Tạo text mô tả cuộc gọi
     let text = "";
-    if (status === "completed") {
+    if (status === CallStatus.COMPLETED) {
       const durationText = duration
         ? `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, "0")}`
         : "0:00";
-      text = `${callType === "video" ? "Video" : "Voice"} call • ${durationText}`;
-    } else if (status === "missed") {
-      text = `Missed ${callType === "video" ? "video" : "voice"} call`;
-    } else if (status === "rejected") {
-      text = `${callType === "video" ? "Video" : "Voice"} call declined`;
+      text = `${callType === CallType.VIDEO ? "Video" : "Voice"} call • ${durationText}`;
+    } else if (status === CallStatus.MISSED) {
+      text = `Missed ${callType === CallType.VIDEO ? "video" : "voice"} call`;
+    } else if (status === CallStatus.REJECTED) {
+      text = `${callType === CallType.VIDEO ? "Video" : "Voice"} call declined`;
     } else {
-      text = `${callType === "video" ? "Video" : "Voice"} call cancelled`;
+      text = `${callType === CallType.VIDEO ? "Video" : "Voice"} call cancelled`;
     }
 
     // Tạo message với type = "call"
@@ -131,7 +132,7 @@ class MessageService {
       receiver: receiverId,
       conversation: conversationId,
       text,
-      type: "call",
+      type: MessageType.CALL,
       callData: {
         callType,
         status,

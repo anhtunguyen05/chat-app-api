@@ -1,9 +1,10 @@
 import { Document, Schema, model, Types } from "mongoose";
+import { FriendRequestStatus } from "../../enums/message.enum";
 
 export interface IFriendRequest {
   from: Types.ObjectId;
   to: Types.ObjectId;
-  status: "pending" | "accepted" | "rejected";
+  status: FriendRequestStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,8 +17,8 @@ const friendRequestSchema = new Schema<IFriendRequestDocument>(
     to: { type: Schema.Types.ObjectId, ref: "User", required: true },
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
-      default: "pending",
+      enum: Object.values(FriendRequestStatus),
+      default: FriendRequestStatus.PENDING,
     },
   },
   { timestamps: true }

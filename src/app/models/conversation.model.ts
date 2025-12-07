@@ -1,7 +1,8 @@
 import { Schema, model, Document, Types } from "mongoose";
+import { ConversationType } from "../../enums/message.enum";
 
 export interface IConversation {
-  type: "private" | "group";
+  type: ConversationType;
   name?: string; // tên nhóm
   avatar?: string; // ảnh nhóm
   participants: Types.ObjectId[];
@@ -14,7 +15,7 @@ const conversationSchema = new Schema<IConversationDocument>(
   {
     type: {
       type: String,
-      enum: ["private", "group"],
+      enum: Object.values(ConversationType),
       required: true,
     },
     name: {

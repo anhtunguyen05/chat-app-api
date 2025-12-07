@@ -6,9 +6,10 @@ import { ConversationParticipant } from "../app/models/conversationParticipant.m
 import messageService from "../app/services/message.service";
 import uploadService from "../app/services/upload.service";
 import redis from "../config/redis.config";
+import { MessageSocketEvent, CommonSocketEvent } from "../enums/socket.enum";
 
 export function registerMessageSocket(io: Server, socket: Socket) {
-  socket.on("sendMessage", async (data) => {
+  socket.on(MessageSocketEvent.SEND_MESSAGE, async (data) => {
     try {
       const {
         senderId,
@@ -31,7 +32,7 @@ export function registerMessageSocket(io: Server, socket: Socket) {
       const conversation = await Conversation.findById(conversationId).lean();
 
       if (!conversation) {
-        socket.emit("error", { message: "Conversation not found" });
+        socket.emit(CommonSocketEvent.ERROR, { message: "Conversation not found" });
         return;
       }
 
@@ -48,10 +49,10 @@ export function registerMessageSocket(io: Server, socket: Socket) {
 
         if (isOnline) {
           // Emit theo userId
-          io.to(memberId).emit("receiveMessage", message);
+          io.to(memberId).emit(MessageSocketEvent.RECEIVE_MESSAGE, message);
 
           // Emit vào room nếu họ đang mở conversation
-          // io.to(conversationId).emit("receiveMessage", message);
+          // io.to(conversationId).emit(MessageSocketEvent.RECEIVE_MESSAGE, message);
         } else {
           // Lưu vào pending tin nhắn
           await redis.lpush(`pending:${memberId}`, JSON.stringify(message));
@@ -59,21 +60,21 @@ export function registerMessageSocket(io: Server, socket: Socket) {
       }
 
       // 5. Trả kết quả lại cho sender
-      socket.emit("messageSent", message);
+      socket.emit(MessageSocketEvent.MESSAGE_SENT, message);
     } catch (err) {
       console.error("❌ sendMessage error:", err);
-      socket.emit("error", { message: "Failed to send message" });
+      socket.emit(CommonSocketEvent.ERROR, { message: "Failed to send message" });
     }
   });
 
-  socket.on("getPendingMessages", async (userId) => {
+  socket.on(MessageSocketEvent.GET_PENDING_MESSAGES, async (userId) => {
     try {
       const pendingKey = `pending:${userId}`;
       const pending = await redis.lrange(pendingKey, 0, -1);
 
       if (pending.length > 0) {
         const messages = pending.map((p) => JSON.parse(p));
-        socket.emit("pendingMessages", messages);
+        socket.emit(MessageSocketEvent.PENDING_MESSAGES, messages);
         await redis.del(pendingKey);
         console.log(
           `📨 Delivered ${messages.length} pending messages to ${userId}`
@@ -84,7 +85,7 @@ export function registerMessageSocket(io: Server, socket: Socket) {
     }
   });
 
-  socket.on("markAsRead", async (data) => {
+  socket.on(MessageSocketEvent.MARK_AS_READ, async (data) => {
     try {
       const { userId, conversationId } = data;
 
@@ -104,7 +105,7 @@ export function registerMessageSocket(io: Server, socket: Socket) {
       );
 
       // 3️⃣ Gửi realtime cho toàn bộ user trong room conversationId
-      io.to(conversationId).emit("messageRead", {
+      io.to(conversationId).emit(MessageSocketEvent.MESSAGE_READ, {
         conversationId,
         userId,
         lastSeenMessage: lastMessage._id,

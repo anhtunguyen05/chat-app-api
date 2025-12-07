@@ -3,6 +3,7 @@ import { User } from "../models/user.model";
 import { Conversation, IConversation } from "../models/conversation.model";
 import { ConversationParticipant } from "../models/conversationParticipant.model";
 import { Message } from "../models/message.model";
+import { ConversationType } from "../../enums/message.enum";
 
 interface CreateGroupDTO {
   name: string;
@@ -34,7 +35,7 @@ class ConversationService {
       let isOnline = false;
       let lastActiveAt = null;
 
-      if (conv.type === "private") {
+      if (conv.type === ConversationType.PRIVATE) {
         const otherUser = await User.findOne({
           _id: { $in: conv.participants, $ne: userId },
         }).select("nickname slug avatarUrl online lastSeen");
@@ -46,7 +47,7 @@ class ConversationService {
         lastActiveAt = otherUser?.lastSeen || null;
       }
 
-      if (conv.type === "group") {
+      if (conv.type === ConversationType.GROUP) {
         displayName = conv.name || "Nhóm không tên";
         avatar = conv.avatar || "/default-group-avatar.png";
       }
@@ -112,7 +113,7 @@ class ConversationService {
 
     // 1. Tạo conversation group
     const conversation = await Conversation.create({
-      type: "group",
+      type: ConversationType.GROUP,
       name,
       avatar: finalAvatar,
       participants,
@@ -133,7 +134,7 @@ class ConversationService {
   async addMembersToGroup(conversationId: string, userIds: string[]) {
     const conv = await Conversation.findById(conversationId);
     if (!conv) throw new Error("Conversation not found");
-    if (conv.type !== "group") throw new Error("Not a group chat");
+    if (conv.type !== ConversationType.GROUP) throw new Error("Not a group chat");
 
     // Chỉ thêm, không merge
     for (const userId of userIds) {
@@ -163,7 +164,7 @@ class ConversationService {
     const conv = await Conversation.findById(conversationId);
 
     if (!conv) throw new Error("Conversation not found");
-    if (conv.type !== "group") throw new Error("Not a group chat");
+    if (conv.type !== ConversationType.GROUP) throw new Error("Not a group chat");
 
     // 1. Xoá khỏi danh sách participants
     conv.participants = conv.participants.filter(
@@ -190,7 +191,7 @@ class ConversationService {
     );
 
     if (!conv) throw new Error("Conversation not found");
-    if (conv.type !== "group") throw new Error("Not a group chat");
+    if (conv.type !== ConversationType.GROUP) throw new Error("Not a group chat");
 
     return conv.participants;
   }
