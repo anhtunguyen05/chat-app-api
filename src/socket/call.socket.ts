@@ -114,9 +114,6 @@ export function registerCallSocket(io: Server, socket: Socket) {
       // Emit message cho cả 2 người
       io.to(callInfo.caller).emit(MessageSocketEvent.MESSAGE_SENT, message);
       io.to(callInfo.receiver).emit(MessageSocketEvent.RECEIVE_MESSAGE, message);
-      
-      // Emit messageSent cho người kết thúc
-      // socket.emit(MessageSocketEvent.MESSAGE_SENT, message);
     }
     
     activeCalls.delete(callId1);

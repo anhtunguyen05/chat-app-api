@@ -98,7 +98,7 @@ export class AuthService {
     { email, password }: { email: string; password: string },
     res?: Response
   ) {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user || !user.password)
       throw new BadRequestError("Email và password là bắt buộc");
 
