@@ -7,21 +7,21 @@ export enum UserSocketEvent {
 
 // Socket events cho conversation
 export enum ConversationSocketEvent {
-  JOIN_CONVERSATION = "joinConversation",
-  LEAVE_CONVERSATION = "leaveConversation",
-  TYPING = "typing",
-  STOP_TYPING = "stopTyping",
+  JOIN_CONVERSATION = "conversation:join",
+  LEAVE_CONVERSATION = "conversation:leave",
+  TYPING = "conversation:typing",
+  STOP_TYPING = "conversation:stop-typing",
 }
 
 // Socket events cho message
 export enum MessageSocketEvent {
-  SEND_MESSAGE = "sendMessage",
-  RECEIVE_MESSAGE = "receiveMessage",
-  MESSAGE_SENT = "messageSent",
-  PENDING_MESSAGES = "pendingMessages",
-  GET_PENDING_MESSAGES = "getPendingMessages",
-  MARK_AS_READ = "markAsRead",
-  MESSAGE_READ = "messageRead",
+  SEND_MESSAGE = "message:send",
+  RECEIVE_MESSAGE = "message:receive",
+  MESSAGE_SENT = "message:sent",
+  PENDING_MESSAGES = "message:pending",
+  GET_PENDING_MESSAGES = "message:get-pending",
+  MARK_AS_READ = "message:mark-as-read",
+  MESSAGE_READ = "message:read",
 }
 
 // Socket events cho call

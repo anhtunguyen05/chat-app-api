@@ -21,7 +21,9 @@ build/
 
 # Environment variables
 .env
-
+.env.production
+.env.local
+.env.docker
 # Coverage testing
 coverage/
 *.lcov
