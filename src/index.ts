@@ -11,13 +11,11 @@ import { setupSocket } from "./config/socket.config";
 
 const app: Application = express();
 
-// ✅ Kết nối DB
 connect();
 
-// ✅ CORS
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://your-fe.vercel.app",
+  process.env.CORS_URL as string,
 ];
 
 app.use(
@@ -33,17 +31,14 @@ app.use(
   })
 );
 
-// ✅ Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// ✅ Route test
 app.get("/", (req: Request, res: Response) => {
   res.send("Hello World!");
 });
 
-// ✅ Route chính
 
 route(app);
 
